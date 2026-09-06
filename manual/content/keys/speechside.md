@@ -18,5 +18,5 @@ The voice archive is chosen by the side's position in the rules `[Sides]` list p
 It is read only in a campaign mission, and only after the side has already been settled from [`Player`](/keys/player/#scope-scenarios-2), so it overrides that choice for speech alone. Art, interface and the buildable list continue to follow `Player`. Writing `<none>` is the same as leaving the key out.
 
 :::caution[A side with no voice archive stops the mission from loading]
-The archive is opened as the mission loads, and the load is abandoned when it cannot be found. The game ships voices for the first two sides only, so naming the `Civilian` or `Mutant` side that the stock rules also declare prevents the mission from starting. A name matching no side at all is worse: it registers a new side, which is then given a position beyond any archive that exists, and the mission fails the same way.
+The archive is opened as the mission loads, and the load is abandoned when it cannot be found. The game ships voices for the first two sides only, so naming the `Civilian` or `Mutant` side that the stock rules also declare prevents the mission from starting. A name matching no side at all is logged and ignored, so the side settled from `Player` narrates.
 :::

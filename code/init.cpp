@@ -498,8 +498,18 @@ int Init_Game(int , char * [])
 	Init_Vocs(voc_ini);
 
 	/*
-	**
+	**	Find and process any rules for this game.
 	*/
+	DebugString("Init Rules\n");
+
+	if (!Init_Rules()) {
+		DebugString("Failed to initialize Rules!\n");
+		return(-1);
+	}
+
+	// A score's Side= names a side the rules declare, so the roster is built before the scores are read.
+	Prepare_Side_Roster();
+
 	DebugString("Reading THEME.INI\n");
 
 	CCINIClass theme_ini;
@@ -511,16 +521,6 @@ int Init_Game(int , char * [])
 	Theme.Free_Themes();
 	Theme.Init_Themes(theme_ini);
 	Theme.Scan();
-
-	/*
-	**	Find and process any rules for this game.
-	*/
-	DebugString("Init Rules\n");
-
-	if (!Init_Rules()) {
-		DebugString("Failed to initialize Rules!\n");
-		return(-1);
-	}
 
 	Session.MaxPlayers = Rule->MaxPlayers;
 
