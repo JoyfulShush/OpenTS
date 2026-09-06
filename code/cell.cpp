@@ -3509,7 +3509,7 @@ bool CellClass::Goodie_Check(FootClass * object)
 			*/
 			if (object->House->CurBuildings == 0 &&
 					object->House->Available_Money() > 1500 &&
-					object->House->UQuantity.Value(Rule->BaseUnit->HeapID) == 0 &&
+					object->House->Count_Owned(object->House->UQuantity, Rule->BaseUnit) == 0 &&
 					Session.Options.Bases) {
 				powerup = CRATE_UNIT;
 				force_mcv = true;
@@ -3694,7 +3694,7 @@ bool CellClass::Goodie_Check(FootClass * object)
 				**	give him another one.
 				*/
 				if (force_mcv) {
-					utp = Rule->BaseUnit;
+					utp = object->House->Get_Preferred(Rule->BaseUnit);
 				}
 
 				/*
@@ -3716,7 +3716,7 @@ bool CellClass::Goodie_Check(FootClass * object)
 				**	If no unit type has been determined, then pick one at random.
 				*/
 				auto qualifies = [&](UnitTypeClass const * candidate) {
-					return candidate->IsCrateGoodie && (candidate->Ownable & object->Owner_HouseClass()->Acted_Mask()) != 0 && (Session.Options.Bases || Rule->BaseUnit != candidate);
+					return candidate->IsCrateGoodie && (candidate->Ownable & object->Owner_HouseClass()->Acted_Mask()) != 0 && (Session.Options.Bases || !Rule->BaseUnit.Is_In_List(candidate));
 				};
 				bool any_goodie = false;
 				for (int index = UNIT_FIRST; index < UnitTypes.Count() && !any_goodie; index++) {

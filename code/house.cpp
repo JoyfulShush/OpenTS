@@ -1492,7 +1492,7 @@ void HouseClass::AI(void)
 	if (Session.Type != GAME_NORMAL && !IsDefeated && Frame > 0 && !Class->IsMultiplayPassive) {
 		bool defeated = false;
 		if (Session.Options.ShortGame) {
-			if (!CurBuildings && !UQuantity.Value(Rule->BaseUnit->HeapID)) {
+			if (!CurBuildings && Count_Owned(UQuantity, Rule->BaseUnit) == 0) {
 				defeated = true;
 			}
 		} else {

@@ -528,7 +528,7 @@ RulesClass::RulesClass(void) :
 	ComputerBaseDefenseResponse(3),
 	AIDetectDisguise(false),
 	MaximumBaseDefenseValue(60),
-	BaseUnit(NULL),
+	BaseUnit(),
 	HarvesterUnit(),
 	PadAircraft(),
 	OnFire(),
@@ -1127,7 +1127,7 @@ bool RulesClass::General(CCINIClass const & ini)
 		GDIFirestormGenerator = TGet_Class(ini, GENERAL, "GDIFirestormGenerator", GDIFirestormGenerator);
 		GDIHunterSeeker = TGet_Class(ini, GENERAL, "GDIHunterSeeker", GDIHunterSeeker);
 		NodHunterSeeker = TGet_Class(ini, GENERAL, "NodHunterSeeker", NodHunterSeeker);
-		BaseUnit = TGet_Class(ini, GENERAL, "BaseUnit", BaseUnit);
+		BaseUnit = TGet_TypeList<UnitTypeClass>(ini, GENERAL, "BaseUnit", BaseUnit);
 		HarvesterUnit = TGet_TypeList<UnitTypeClass>(ini, GENERAL, "HarvesterUnit", HarvesterUnit);
 		PadAircraft = TGet_TypeList<AircraftTypeClass>(ini, GENERAL, "PadAircraft", PadAircraft);
 		Paratrooper = TGet_Class(ini, GENERAL, "Paratrooper", Paratrooper);
@@ -2596,9 +2596,6 @@ void RulesClass::Detach(AbstractClass const * target, bool all)
 	if (target == FlareAnim) {
 		FlareAnim = NULL;
 	}
-	if (target == BaseUnit) {
-		BaseUnit = NULL;
-	}
 	if (target == UnitCrateType) {
 		UnitCrateType = NULL;
 	}
@@ -2734,6 +2731,7 @@ void RulesClass::Detach(AbstractClass const * target, bool all)
 	Craters.Delete((SmudgeTypeClass const *)target);
 
 	HarvesterUnit.Delete((UnitTypeClass const *)target);
+	BaseUnit.Delete((UnitTypeClass const *)target);
 
 	BuildConst.Delete((BuildingTypeClass const *)target);
 	BuildPower.Delete((BuildingTypeClass const *)target);

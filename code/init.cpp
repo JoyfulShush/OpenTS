@@ -3775,7 +3775,7 @@ class CenterBaseCommandClass : public CommandClass
 				if (PlayerPtr->CurUnits) {
 					for (index = 0; index < Units.Count(); index++) {
 						UnitClass * unit = Units[index];
-						if (unit != NULL && !unit->IsInLimbo && unit->House->Is_Player_Control() && unit->Class == Rule->BaseUnit) {
+						if (unit != NULL && !unit->IsInLimbo && unit->House->Is_Player_Control() && Rule->BaseUnit.Is_In_List(unit->Class)) {
 							conyard_coord = unit->Center_Coord();
 							break;
 						}

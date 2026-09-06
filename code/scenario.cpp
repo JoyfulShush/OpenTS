@@ -2774,7 +2774,7 @@ static void Create_Units(bool official)
 	Cell centroid;			// centroid of this house's stuff
 	int unit_count = Session.Options.UnitCount;
 
-	if (Session.Options.Bases) {
+	if (Session.Options.Bases && Rule->BaseUnit.Count() > 0) {
 		unit_count--;
 	}
 
@@ -2786,7 +2786,7 @@ static void Create_Units(bool official)
 	for (int u = 0; u < UnitTypes.Count(); u++) {
 		UnitTypeClass * utype = UnitTypes[u];
 		if (utype->IsAllowedToStartInMultiplayer) {
-			if (utype->Fetch_ID() != Rule->BaseUnit->Fetch_ID()) {
+			if (!Rule->BaseUnit.Is_In_List(utype)) {
 				total_cost += utype->Raw_Cost();
 				total_objs++;
 			}
@@ -2848,7 +2848,7 @@ static void Create_Units(bool official)
 			UnitTypeClass * utype = UnitTypes[unit];
 			if (utype->IsAllowedToStartInMultiplayer) {
 				if (utype->Level <= hptr->Control.TechLevel && (utype->Ownable & mask)) {
-					if (utype->Fetch_ID() != Rule->BaseUnit->Fetch_ID()) {
+					if (!Rule->BaseUnit.Is_In_List(utype)) {
 						units.Add(utype);
 					}
 				}
@@ -2889,8 +2889,9 @@ static void Create_Units(bool official)
 			**	- Attach a flag to it for capture-the-flag mode
 			*/
 //			scaleval = 1;
-			TechnoClass * obj = new UnitClass(Rule->BaseUnit, hptr);
-			if (!obj->Unlimbo(Coord(centroid))) {
+			UnitTypeClass const * baseunit = hptr->Get_Preferred(Rule->BaseUnit);
+			TechnoClass * obj = baseunit != NULL ? new UnitClass(baseunit, hptr) : NULL;
+			if (obj != NULL && !obj->Unlimbo(Coord(centroid))) {
 				if (!Scan_Place_Object(obj, centroid)) {
 					delete obj;
 					obj = NULL;

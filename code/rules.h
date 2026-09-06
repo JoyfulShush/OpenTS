@@ -1094,10 +1094,11 @@ class RulesClass
 		int MaximumBaseDefenseValue;
 
 		/*
-		 * This is the unit that deploys into a construction yard -- the MCV. A house
-		 * with neither a base nor one of these has lost.
+		 * These are the units that deploy into a construction yard -- the MCVs, one per
+		 * country where a rules set gives each its own. A house with neither a base nor one
+		 * of these has lost.
 		 */
-		UnitTypeClass const * BaseUnit;
+		TypeList<UnitTypeClass const *> BaseUnit;
 
 		/*
 		 * These are the unit types that count as harvesters, listed so that the game can

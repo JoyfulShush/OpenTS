@@ -1225,12 +1225,12 @@ ActsLike:
     section:
       kind: identifier
       source: house
-    value_type: integer
+    value_type: string
     status: generated
     _provenance:
       default_candidate: null
       declared_in: HouseClass
-      member: ActLike
+      member: actslike
       source: code/house.cpp
       guard: null
     level: HouseClass
@@ -2711,10 +2711,10 @@ BaseUnit:
     section:
       kind: literal
       name: General
-    value_type: class
+    value_type: typelist
     status: generated
     _provenance:
-      default_candidate: none
+      default_candidate: ''
       declared_in: RulesClass
       member: BaseUnit
       source: code/rules.cpp
