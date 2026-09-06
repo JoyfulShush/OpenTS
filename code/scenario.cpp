@@ -2427,6 +2427,14 @@ void Assign_Houses(void)
 		}
 	}
 
+	// A computer player is given one of the countries the lobby offers.
+	DynamicVectorClass<HousesType> playable;
+	for (int country = HOUSE_FIRST; country < HouseTypes.Count(); country++) {
+		if (HouseTypes[country]->IsMultiplay) {
+			playable.Add((HousesType)country);
+		}
+	}
+
 	//------------------------------------------------------------------------
 	// Now assign computer players to the remaining houses.
 	//------------------------------------------------------------------------
@@ -2439,7 +2447,7 @@ void Assign_Houses(void)
 		int seatnum = i - Session.Players.Count();
 		NodeNameType * seat = seatnum < Session.Computers.Count() ? Session.Computers[seatnum] : NULL;
 
-		pref_house = (HousesType)Random_Pick(0, 1);
+		pref_house = playable.Count() > 0 ? playable[Random_Pick(0, playable.Count() - 1)] : HOUSE_FIRST;
 		if (seat != NULL && seat->Player.House != -1) {
 			pref_house = (HousesType)seat->Player.House;
 		}
