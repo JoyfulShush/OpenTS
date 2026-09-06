@@ -1144,6 +1144,24 @@ bool RulesClass::General(CCINIClass const & ini)
 		AIUseTurbineUpgradeChance = ini.Get_Float(GENERAL, "AIUseTurbineUpgradeProbability", AIUseTurbineUpgradeChance);
 		NodAIBuildsWalls = ini.Get_Bool(GENERAL, "NodAIBuildsWalls", NodAIBuildsWalls);
 		AIBuildsWalls = ini.Get_Bool(GENERAL, "AIBuildsWalls", AIBuildsWalls);
+
+		// The first two sides take the GDI and Nod keys as each file sets them, before the side's
+		// own section in that file overrides.
+		if (Sides.Count() > 0) {
+			SideClass * first = Sides[0];
+			if (ini.Is_Present(GENERAL, "GDIPowerPlant")) first->RegularPowerPlant = GDIPowerPlant;
+			if (ini.Is_Present(GENERAL, "GDIPowerTurbine")) first->PowerTurbine = GDIPowerTurbine;
+			if (ini.Is_Present(GENERAL, "WallTower")) {
+				first->AIWallTowers.Clear();
+				if (WallTower != NULL) first->AIWallTowers.Add(WallTower);
+			}
+		}
+		if (Sides.Count() > 1) {
+			SideClass * second = Sides[1];
+			if (ini.Is_Present(GENERAL, "NodRegularPower")) second->RegularPowerPlant = NodRegularPower;
+			if (ini.Is_Present(GENERAL, "NodAdvancedPower")) second->AdvancedPowerPlant = NodAdvancedPower;
+			if (ini.Is_Present(GENERAL, "NodAIBuildsWalls")) second->IsAIBuildsWalls = NodAIBuildsWalls;
+		}
 		FillEarliestTeamProbability = ini.Get_IntList(GENERAL, "FillEarliestTeamProbability", FillEarliestTeamProbability);
 		MinimumAIDefensiveTeams = ini.Get_IntList(GENERAL, "MinimumAIDefensiveTeams", MinimumAIDefensiveTeams);
 		MaximumAIDefensiveTeams = ini.Get_IntList(GENERAL, "MaximumAIDefensiveTeams", MaximumAIDefensiveTeams);
@@ -1726,6 +1744,17 @@ bool RulesClass::AI(CCINIClass const & ini)
 		GDIWallDefenseCoefficient = ini.Get_Float(AI, "GDIWallDefenseCoefficient", GDIWallDefenseCoefficient);
 		NodBaseDefenseCoefficient = ini.Get_Float(AI, "NodBaseDefenseCoefficient", NodBaseDefenseCoefficient);
 		GDIBaseDefenseCoefficient = ini.Get_Float(AI, "GDIBaseDefenseCoefficient", GDIBaseDefenseCoefficient);
+
+		// The first two sides inherit the GDI and Nod keys as each file sets them.
+		if (Sides.Count() > 0) {
+			SideClass * first = Sides[0];
+			if (ini.Is_Present(AI, "GDIWallDefense")) first->AIWallDefense = GDIWallDefense;
+			if (ini.Is_Present(AI, "GDIWallDefenseCoefficient")) first->AIWallDefenseCoefficient = GDIWallDefenseCoefficient;
+			if (ini.Is_Present(AI, "GDIBaseDefenseCoefficient")) first->AIBaseDefenseCoefficient = GDIBaseDefenseCoefficient;
+		}
+		if (Sides.Count() > 1 && ini.Is_Present(AI, "NodBaseDefenseCoefficient")) {
+			Sides[1]->AIBaseDefenseCoefficient = NodBaseDefenseCoefficient;
+		}
 		MaximumBaseDefenseValue = ini.Get_Int(AI, "MaximumBaseDefenseValue", MaximumBaseDefenseValue);
 		ComputerBaseDefenseResponse = ini.Get_Int(AI, "ComputerBaseDefenseResponse", ComputerBaseDefenseResponse);
 		AIDetectDisguise = ini.Get_Bool(AI, "AIDetectDisguise", AIDetectDisguise);
@@ -2786,6 +2815,11 @@ bool RulesClass::Objects(CCINIClass const & ini)
 	*/
 	for (int house = HOUSE_FIRST; house < HouseTypes.Count(); house++) {
 		HouseTypes[house]->Read_INI(ini);
+	}
+
+	// Every country has named its side by now, so the sides read their own sections last.
+	for (int side = 0; side < Sides.Count(); side++) {
+		Sides[side]->Read_INI(ini);
 	}
 
 	/*

@@ -69,6 +69,7 @@ class TriggerClass;
 class FootClass;
 class FactoryClass;
 class HouseTypeClass;
+class SideClass;
 class ObjectClass;
 class TechnoClass;
 class TagClass;
@@ -815,6 +816,8 @@ class HouseClass : public AbstractClass
 		void Begin_Construction(void);
 		void Begin_Construction(Cell const & center);
 		int Acted_Mask(void) const;
+		SideClass const * Acted_Side(void) const;
+		bool Is_Acted_Tower(BuildingTypeClass const * type) const;
 		template<typename T> T const * Get_First_Acted(DynamicVectorClass<T const *> const & list) const;
 		template<typename T> T const * Get_Preferred(DynamicVectorClass<T const *> const & list) const;
 		template<typename T> bool Owns_Any(CounterClass const & tally, TypeList<T const *> const & list) const;
