@@ -4333,7 +4333,7 @@ bool HouseClass::AI_Raise_Money(UrgencyType urgency)
 	 * A refinery plus a war factory means a harvester is the cheaper way back into business.
 	 */
 	bool can_build_harvester = ABQuantity.Value(Rule->BuildRefinery[0]->HeapID) > 0 &&
-		(ABQuantity.Value(Rule->BuildWeapons[0]->HeapID) > 0 || ABQuantity.Value(Rule->BuildWeapons[1]->HeapID) > 0);
+		Owns_Any(ABQuantity, Rule->BuildWeapons);
 	if (can_build_harvester) {
 		needed = Rule->HarvesterUnit[0]->Cost_Of(this);
 	} else {
