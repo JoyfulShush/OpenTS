@@ -6803,23 +6803,14 @@ void HouseClass::Begin_Construction(Cell const & center)
 
 
 /// <summary>
-/// Fetches the first structure in a list that this house may own.
-/// This routine is used to resolve the generic structure lists in the rules -- the barracks
-/// or the power plant, say -- down to the particular one that this house builds.
+/// Fetches the Ownable bit of the country whose types this house plans, prices and is handed.
+/// Every role list in the rules is resolved through it, so that the same country answers
+/// wherever the house asks what it may build.
 /// </summary>
-/// <param name="vector">The candidate structures, in order of preference.</param>
-/// <returns>Returns with the first structure this house may own, or NULL if it may own
-/// none.</returns>
-BuildingTypeClass const * HouseClass::Get_First_Ownable(DynamicVectorClass<BuildingTypeClass const *> const & vector) const
+/// <returns>Returns with the bit an Ownable field carries for that country.</returns>
+int HouseClass::Acted_Mask(void) const
 {
-	int owners = 1 << HouseTypes.ID(Class);
-	for (int i = 0; i < vector.Count(); i++) {
-		if (owners & vector[i]->Ownable) {
-			return(vector[i]);
-		}
-	}
-
-	return(NULL);
+	return(1 << HouseTypes.ID(Class));
 }
 
 
@@ -6868,19 +6859,19 @@ bool HouseClass::AI_Has_Prerequisites(TechnoTypeClass const * type, DynamicVecto
 			switch (type->Prerequisite[i]) {
 
 				case STRUCT_G_FACTORY:
-					own_building = Get_First_Ownable(Rule->BuildWeapons);
+					own_building = Get_First_Acted(Rule->BuildWeapons);
 					break;
 
 				case STRUCT_G_BARRACKS:
-					own_building = Get_First_Ownable(Rule->BuildBarracks);
+					own_building = Get_First_Acted(Rule->BuildBarracks);
 					break;
 
 				case STRUCT_G_RADAR:
-					own_building = Get_First_Ownable(Rule->BuildRadar);
+					own_building = Get_First_Acted(Rule->BuildRadar);
 					break;
 
 				case STRUCT_G_TECH:
-					own_building = Get_First_Ownable(Rule->BuildTech);
+					own_building = Get_First_Acted(Rule->BuildTech);
 					break;
 
 				default:
@@ -6933,7 +6924,7 @@ void HouseClass::Make_Base_Nodes(void)
 		}
 	}
 
-	int ownable = 1 << HouseTypes.ID(Class);
+	int ownable = Acted_Mask();
 
 	DynamicVectorClass<BuildingTypeClass const *> buildables;
 	DynamicVectorClass<bool> isadded;
@@ -6963,9 +6954,9 @@ void HouseClass::Make_Base_Nodes(void)
 		}
 	}
 
-	startingqueue.Add(Get_First_Ownable(Rule->BuildPower));
+	startingqueue.Add(Get_First_Acted(Rule->BuildPower));
 
-	BuildingTypeClass const * barracks = Get_First_Ownable(Rule->BuildBarracks);
+	BuildingTypeClass const * barracks = Get_First_Acted(Rule->BuildBarracks);
 	for (index = 0; index < buildables.Count(); index++) {
 		if (buildables[index] == barracks) {
 			BuildingTypeClass const * temp = buildables[0];
@@ -6977,7 +6968,7 @@ void HouseClass::Make_Base_Nodes(void)
 		}
 	}
 
-	BuildingTypeClass const * weapons = Get_First_Ownable(Rule->BuildWeapons);
+	BuildingTypeClass const * weapons = Get_First_Acted(Rule->BuildWeapons);
 	for (index = 0; index < buildables.Count(); index++) {
 		if (buildables[index] == weapons) {
 			BuildingTypeClass const * temp = buildables[1];
@@ -7032,7 +7023,7 @@ void HouseClass::Make_Base_Nodes(void)
 
 	int refcount = 2 - Difficulty;
 
-	BuildingTypeClass const * ref = Get_First_Ownable(Rule->BuildRefinery);
+	BuildingTypeClass const * ref = Get_First_Acted(Rule->BuildRefinery);
 	int refpos = 0;
 	for (index = 0; index < startingqueue.Count() - 1; index++) {
 		if (startingqueue[index] == ref) {
@@ -7655,7 +7646,7 @@ bool HouseClass::AI_Build_Defense(int nodeindex, DynamicVectorClass<Cell> * cell
 				 * A wall node at this cell is now redundant -- remove it.
 				 */
 				if (cells != NULL) {
-					BuildingTypeClass const * wall = Get_First_Ownable(Rule->ConcreteWalls);
+					BuildingTypeClass const * wall = Get_First_Acted(Rule->ConcreteWalls);
 					for (i = Base.Nodes.Count() - 1; i >= 0; i--) {
 						if (Base.Nodes[i].CellID == cell && Base.Nodes[i].Type == wall->HeapID) {
 							Base.Nodes.Delete_Index(i);
@@ -7689,7 +7680,7 @@ bool HouseClass::AI_Build_Defense(int nodeindex, DynamicVectorClass<Cell> * cell
 /// <returns>Returns with the list of candidates, which may well be empty.</returns>
 DynamicVectorClass<BuildingTypeClass *> HouseClass::Get_Anti_Air_Defense_Buildings(DynamicVectorClass<BuildingTypeClass const *> & owned) const
 {
-	unsigned ownable = 1 << HouseTypes.ID(Class);
+	unsigned ownable = Acted_Mask();
 	DynamicVectorClass<BuildingTypeClass *> defenses;
 
 	for (int i = 0; i < BuildingTypes.Count(); i++) {
@@ -7713,7 +7704,7 @@ DynamicVectorClass<BuildingTypeClass *> HouseClass::Get_Anti_Air_Defense_Buildin
 /// <returns>Returns with the list of candidates, which may well be empty.</returns>
 DynamicVectorClass<BuildingTypeClass *> HouseClass::Get_Anti_Armor_Defense_Buildings(DynamicVectorClass<BuildingTypeClass const *> & owned) const
 {
-	unsigned ownable = 1 << HouseTypes.ID(Class);
+	unsigned ownable = Acted_Mask();
 	DynamicVectorClass<BuildingTypeClass *> defenses;
 
 	for (int i = 0; i < BuildingTypes.Count(); i++) {
@@ -7737,7 +7728,7 @@ DynamicVectorClass<BuildingTypeClass *> HouseClass::Get_Anti_Armor_Defense_Build
 /// <returns>Returns with the list of candidates, which may well be empty.</returns>
 DynamicVectorClass<BuildingTypeClass *> HouseClass::Get_Anti_Ground_Defense_Buildings(DynamicVectorClass<BuildingTypeClass const *> & owned) const
 {
-	unsigned ownable = 1 << HouseTypes.ID(Class);
+	unsigned ownable = Acted_Mask();
 	DynamicVectorClass<BuildingTypeClass *> defenses;
 
 	for (int i = 0; i < BuildingTypes.Count(); i++) {
@@ -7792,9 +7783,9 @@ void HouseClass::AI_Build_Wall(void)
 		Cell(Base.LastBaseAreaRect.X + Base.LastBaseAreaRect.Width - 1, Base.LastBaseAreaRect.Y + Base.LastBaseAreaRect.Height - 1)
 	};
 
-	BuildingTypeClass const * wall = Get_First_Ownable(Rule->ConcreteWalls);
-	BuildingTypeClass const * ewgate = Get_First_Ownable(Rule->EWGates);
-	BuildingTypeClass const * nsgate = Get_First_Ownable(Rule->NSGates);
+	BuildingTypeClass const * wall = Get_First_Acted(Rule->ConcreteWalls);
+	BuildingTypeClass const * ewgate = Get_First_Acted(Rule->EWGates);
+	BuildingTypeClass const * nsgate = Get_First_Acted(Rule->NSGates);
 
 	BuildingTypeClass const * gates[] = { ewgate, ewgate, nsgate, nsgate };
 	static const FacingType _step_facings[] = { FACING_E, FACING_E, FACING_S, FACING_S };

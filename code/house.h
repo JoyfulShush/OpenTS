@@ -814,7 +814,9 @@ class HouseClass : public AbstractClass
 
 		void Begin_Construction(void);
 		void Begin_Construction(Cell const & center);
-		BuildingTypeClass const * Get_First_Ownable(DynamicVectorClass<BuildingTypeClass const *> const & owned) const;
+		int Acted_Mask(void) const;
+		template<typename T> T const * Get_First_Acted(DynamicVectorClass<T const *> const & list) const;
+		template<typename T> T const * Get_Preferred(DynamicVectorClass<T const *> const & list) const;
 		template<typename T> bool Owns_Any(CounterClass const & tally, TypeList<T const *> const & list) const;
 		template<typename T> int Count_Owned(CounterClass const & tally, TypeList<T const *> const & list) const;
 		bool AI_Has_Prerequisites(TechnoTypeClass const * type, DynamicVectorClass<BuildingTypeClass const *> & owned, int ownedcount) const;
@@ -1147,6 +1149,32 @@ inline int HouseClass::Count_Owned(CounterClass const & tally, TypeList<T const 
 		count += tally.Value(list[index]->HeapID);
 	}
 	return(count);
+}
+
+
+// The first entry the country this house builds for may own, or NULL when it may own none.
+template<typename T>
+inline T const * HouseClass::Get_First_Acted(DynamicVectorClass<T const *> const & list) const
+{
+	int mask = Acted_Mask();
+	for (int index = 0; index < list.Count(); index++) {
+		if (mask & list[index]->Ownable) {
+			return(list[index]);
+		}
+	}
+	return(NULL);
+}
+
+
+// For a role that must be priced or queued: the acted entry, else entry 0, else NULL.
+template<typename T>
+inline T const * HouseClass::Get_Preferred(DynamicVectorClass<T const *> const & list) const
+{
+	T const * acted = Get_First_Acted(list);
+	if (acted != NULL) {
+		return(acted);
+	}
+	return(list.Count() > 0 ? list[0] : NULL);
 }
 
 
