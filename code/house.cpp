@@ -8410,7 +8410,7 @@ void HouseClass::AI_Ion_Cannon(SuperClass * super)
 						UnitTypeClass const * unittype = ((UnitClass *)techno)->Class;
 						if (unittype->IsToHarvest) {
 							value = Rule->AIIonCannonHarvesterValue[Difficulty];
-						} else if (unittype->DeploysInto == Rule->BuildConst[0]) {
+						} else if (Rule->BuildConst.Is_In_List(unittype->DeploysInto)) {
 							value = Rule->AIIonCannonMCVValue[Difficulty];
 						} else if (unittype->MaxPassengers > 0) {
 							value = Rule->AIIonCannonAPCValue[Difficulty];

@@ -9,6 +9,9 @@ targets:
 - type: system
   id: production
   effect: changed
+- type: system
+  id: superweapons
+  effect: changed
 credit: [ZivDero, AlexB]
 ---
 
@@ -16,6 +19,8 @@ A building of any type listed in `BuildConst` is now a construction yard: it joi
 yard tally, produces only for the country its own record names, and its loss or capture is
 judged like entry 0's. A house whose yard was a later entry owned none as far as the engine was
 concerned, so a computer house built no structures at all, a captured yard left the placement
-cursor up, and a second yard type built for any country at all.
+cursor up, and a second yard type built for any country at all. A vehicle that deploys into any
+listed yard is likewise an MCV: a computer house sends it to find a site and deploys it, its
+deploy cursor sits where the yard will, and the ion cannon rates it as one.
 
 AlexB is credited for the ts-patches bundle that first read this list whole.

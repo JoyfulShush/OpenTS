@@ -236,7 +236,7 @@ The rows are tested top to bottom and the first match wins, so a base defense th
 | [`HoverPad=yes`](/keys/hoverpad/) structure | [`AIIonCannonHelipadValue`](/keys/aiioncannonhelipadvalue/) | Per-difficulty list |
 | Any other structure | `4` | Fixed in the engine |
 | [`Harvester=yes`](/keys/harvester/) vehicle | [`AIIonCannonHarvesterValue`](/keys/aiioncannonharvestervalue/) | Per-difficulty list |
-| Vehicle whose [`DeploysInto`](/keys/deploysinto/) is the first [`BuildConst`](/keys/buildconst/) type | [`AIIonCannonMCVValue`](/keys/aiioncannonmcvvalue/) | Per-difficulty list |
+| Vehicle whose [`DeploysInto`](/keys/deploysinto/) is a [`BuildConst`](/keys/buildconst/) type | [`AIIonCannonMCVValue`](/keys/aiioncannonmcvvalue/) | Per-difficulty list |
 | Vehicle with [`Passengers`](/keys/passengers/) above zero | [`AIIonCannonAPCValue`](/keys/aiioncannonapcvalue/) | Per-difficulty list |
 | Any other vehicle | `2` | Fixed in the engine |
 
