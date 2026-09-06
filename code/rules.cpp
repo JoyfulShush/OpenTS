@@ -224,6 +224,7 @@ RulesClass::RulesClass(void) :
 	Diff(),
 	IsComputerParanoid(true),
 	IsCurleyShuffle(false),
+	IsMultiMCV(false),
 	IsBlendedFog(true),
 	IsCompEasyBonus(true),
 	IsFineDifficulty(false),
@@ -1137,6 +1138,7 @@ bool RulesClass::General(CCINIClass const & ini)
 		Pilot = TGet_Class(ini, GENERAL, "Pilot", Pilot);
 		Crew = TGet_Class(ini, GENERAL, "Crew", Crew);
 		IsCurleyShuffle = ini.Get_Bool(GENERAL, "CurleyShuffle", IsCurleyShuffle);
+		IsMultiMCV = ini.Get_Bool(GENERAL, "MultiMCV", IsMultiMCV);
 		IsFineDifficulty = ini.Get_Bool(GENERAL, "FineDiffControl", IsFineDifficulty);
 		TeamDelays = ini.Get_IntList(GENERAL, "TeamDelays", TeamDelays);
 		AIHateDelays = ini.Get_IntList(GENERAL, "AIHateDelays", AIHateDelays);
@@ -2475,6 +2477,7 @@ void RulesClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(ExtraAircraftLight);
 	stream.Serialize(IsComputerParanoid);
 	stream.Serialize(IsCurleyShuffle);
+	stream.Serialize(IsMultiMCV);
 	stream.Serialize(IsBlendedFog);
 	stream.Serialize(IsCompEasyBonus);
 	stream.Serialize(IsFineDifficulty);

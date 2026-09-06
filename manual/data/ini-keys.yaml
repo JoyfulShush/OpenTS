@@ -14233,6 +14233,24 @@ MovieTime:
       source: code/rules.cpp
       guard: null
     level: RulesClass
+MultiMCV:
+  key: MultiMCV
+  scopes:
+  - applies_to:
+    - global rules
+    file: rules.ini
+    section:
+      kind: literal
+      name: General
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'no'
+      declared_in: RulesClass
+      member: IsMultiMCV
+      source: code/rules.cpp
+      guard: null
+    level: RulesClass
 Multiplay:
   key: Multiplay
   scopes:

@@ -1049,9 +1049,9 @@ int HouseClass::Can_Build(ObjectTypeClass const * type, bool forced, bool includ
 				return(0);
 			}
 
-			// Offered only when a yard acting for one of its owners can produce it, which is the
-			// test the factory search applies whatever the owner list holds.
-			bool found = false;
+			// The gate Who_Can_Build_Me applies, so the sidebar never offers a cameo the factory
+			// search then refuses.
+			bool found = Rule->IsMultiMCV;
 			for (int i = 0; i < ConYards.Count() && !found; i++) {
 				BuildingClass * conyard = ConYards[i];
 				if (!conyard->IsInLimbo && conyard->IsOn) {

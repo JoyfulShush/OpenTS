@@ -2065,6 +2065,13 @@ class RulesClass
 		bool IsCurleyShuffle;
 
 		/*
+		 * If true, then a construction yard produces for every country of a type's Owner list
+		 * rather than for the country it was built by, which is what a rules set with one MCV
+		 * per faction needs once an MCV comes out of a captured factory.
+		 */
+		bool IsMultiMCV;
+
+		/*
 		 * If the fog is to be blended evenly into the terrain beneath it, then this flag
 		 * will be true. Otherwise the fog is dithered on, covering every other pixel in a
 		 * checkerboard so that half the terrain still shows through.
