@@ -6958,6 +6958,21 @@ bool HouseClass::AI_Has_Prerequisites(TechnoTypeClass const * type, DynamicVecto
 					own_building = Get_First_Acted(Rule->BuildTech);
 					break;
 
+				// Any type of the group already queued satisfies it, as one owned does for a house playing.
+				case STRUCT_G_GDIFACTORY:
+				case STRUCT_G_NODFACTORY: {
+					TypeList<int> const & group = type->Prerequisite[i] == STRUCT_G_GDIFACTORY ? Rule->PrerequisiteGDIFactory : Rule->PrerequisiteNodFactory;
+					for (int j = 0; j < group.Count() && own_building == NULL; j++) {
+						for (int k = 0; k < ownedcount; k++) {
+							if (owned[k] == BuildingTypes[group[j]]) {
+								own_building = owned[k];
+								break;
+							}
+						}
+					}
+					break;
+				}
+
 				default:
 					break;
 			}
