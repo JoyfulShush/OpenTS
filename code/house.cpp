@@ -458,12 +458,18 @@ HouseClass::HouseClass(HouseTypeClass const * type) :
 /// <returns>bool; Is the house able to keep earning credits?</returns>
 bool HouseClass::Can_Make_Money(void)
 {
-	int credits = Available_Money();
-	int refcost = Rule->BuildRefinery[0]->Cost_Of(this);
-	int harvcost = Rule->HarvesterUnit[0]->Cost_Of(this);
+	BuildingTypeClass const * refinery = Get_Preferred(Rule->BuildRefinery);
+	UnitTypeClass const * harvester = Get_Preferred(Rule->HarvesterUnit);
+	if (refinery == NULL || harvester == NULL) {
+		return(true);
+	}
 
-	bool hasref = ABQuantity.Value(Rule->BuildRefinery[0]->HeapID) > 0;
-	bool hasharv = AUQuantity.Value(Rule->HarvesterUnit[0]->HeapID) > 0;
+	int credits = Available_Money();
+	int refcost = refinery->Cost_Of(this);
+	int harvcost = harvester->Cost_Of(this);
+
+	bool hasref = Owns_Any(ABQuantity, Rule->BuildRefinery);
+	bool hasharv = Owns_Any(AUQuantity, Rule->HarvesterUnit);
 
 	/*
 	 * If we don't have any refineries, building one is a priority.
@@ -479,7 +485,8 @@ bool HouseClass::Can_Make_Money(void)
 
 		bool hasfactory = Owns_Any(ABQuantity, Rule->BuildWeapons);
 
-		int factorycost = Rule->BuildWeapons[0]->Cost_Of(this);
+		BuildingTypeClass const * factory = Get_Preferred(Rule->BuildWeapons);
+		int factorycost = factory != NULL ? factory->Cost_Of(this) : 0;
 		if ((hasfactory && credits >= harvcost) || (credits >= harvcost + factorycost) || (credits >= refcost)) {
 			return(true);
 		}
@@ -1608,7 +1615,7 @@ void HouseClass::AI(void)
 			}
 		} else if (ProductionMode == UNITS) {
 			AI_Unit();
-			if (BuildUnit != Rule->HarvesterUnit[0]->HeapID) {
+			if (BuildUnit == UNIT_NONE || !Rule->HarvesterUnit.Is_In_List(UnitTypes[BuildUnit])) {
 				AI_Infantry();
 				AI_Aircraft();
 			}
@@ -4212,14 +4219,14 @@ UrgencyType HouseClass::Check_Raise_Money(void)
 	}
 
 	if (!Can_Make_Money()) {
-		if (ABQuantity.Value(Rule->BuildRefinery[0]->HeapID) > 0) {
+		if (Owns_Any(ABQuantity, Rule->BuildRefinery)) {
 
 			/*
 			 * A refinery already going up means the situation is being taken care of.
 			 */
 			for (i = 0; i < Buildings.Count(); i++) {
 				if (Buildings[i]->House == this) {
-					if (Buildings[i]->Class == Rule->BuildRefinery[0] && Buildings[i]->CurrentMission == MISSION_CONSTRUCTION) {
+					if (Rule->BuildRefinery.Is_In_List(Buildings[i]->Class) && Buildings[i]->CurrentMission == MISSION_CONSTRUCTION) {
 						return(URGENCY_NONE);
 					}
 					urgency = URGENCY_NONE;
@@ -4230,8 +4237,8 @@ UrgencyType HouseClass::Check_Raise_Money(void)
 			 * There is a refinery, so a harvester is what this house is short of. If one is
 			 * not on order, or is on order but cannot be paid for, then cash must be raised.
 			 */
-			if (BuildUnit != Rule->HarvesterUnit[0]->HeapID) {
-				if (Available_Money() < Rule->HarvesterUnit[0]->Cost_Of(this)) {
+			if (BuildUnit == UNIT_NONE || !Rule->HarvesterUnit.Is_In_List(UnitTypes[BuildUnit])) {
+				if (Available_Money() < Get_Preferred(Rule->HarvesterUnit)->Cost_Of(this)) {
 					urgency++;
 				}
 			} else {
@@ -4239,7 +4246,7 @@ UrgencyType HouseClass::Check_Raise_Money(void)
 					FactoryClass * fptr = Factories[j];
 					if (fptr->House == this && Factories[j]->Get_Object() != NULL) {
 						UnitClass * unit = (UnitClass *)Factories[j]->Get_Object();
-						if (unit->RTTI == RTTI_UNIT && unit->Class == Rule->HarvesterUnit[0]) {
+						if (unit->RTTI == RTTI_UNIT && Rule->HarvesterUnit.Is_In_List(unit->Class)) {
 							fptr = Factories[j];
 							if (fptr != NULL) {
 								int owed = fptr->Balance;
@@ -4258,8 +4265,8 @@ UrgencyType HouseClass::Check_Raise_Money(void)
 			/*
 			 * No refinery at all. The same reasoning applies to getting one built.
 			 */
-			if (BuildStructure != Rule->BuildRefinery[0]->HeapID) {
-				if (Available_Money() < Rule->BuildRefinery[0]->Cost_Of(this)) {
+			if (BuildStructure == STRUCT_NONE || !Rule->BuildRefinery.Is_In_List(BuildingTypes[BuildStructure])) {
+				if (Available_Money() < Get_Preferred(Rule->BuildRefinery)->Cost_Of(this)) {
 					urgency++;
 				}
 			} else {
@@ -4267,7 +4274,7 @@ UrgencyType HouseClass::Check_Raise_Money(void)
 					FactoryClass * fptr = Factories[j];
 					if (fptr->House == this && Factories[j]->Get_Object() != NULL) {
 						BuildingClass * building = (BuildingClass *)Factories[j]->Get_Object();
-						if (building->RTTI == RTTI_BUILDING && building->Class == Rule->BuildRefinery[0]) {
+						if (building->RTTI == RTTI_BUILDING && Rule->BuildRefinery.Is_In_List(building->Class)) {
 							fptr = Factories[j];
 							if (fptr != NULL) {
 								int owed = fptr->Balance;
@@ -4329,15 +4336,21 @@ bool HouseClass::AI_Raise_Money(UrgencyType urgency)
 	int refund = 0;
 	int needed = 0;
 
+	BuildingTypeClass const * refinery = Get_Preferred(Rule->BuildRefinery);
+	UnitTypeClass const * harvester = Get_Preferred(Rule->HarvesterUnit);
+	if (refinery == NULL || harvester == NULL) {
+		return(false);
+	}
+
 	/*
 	 * A refinery plus a war factory means a harvester is the cheaper way back into business.
 	 */
-	bool can_build_harvester = ABQuantity.Value(Rule->BuildRefinery[0]->HeapID) > 0 &&
+	bool can_build_harvester = Owns_Any(ABQuantity, Rule->BuildRefinery) &&
 		Owns_Any(ABQuantity, Rule->BuildWeapons);
 	if (can_build_harvester) {
-		needed = Rule->HarvesterUnit[0]->Cost_Of(this);
+		needed = harvester->Cost_Of(this);
 	} else {
-		needed = Rule->BuildRefinery[0]->Cost_Of(this);
+		needed = refinery->Cost_Of(this);
 	}
 
 	/*
@@ -4388,14 +4401,14 @@ bool HouseClass::AI_Raise_Money(UrgencyType urgency)
 			BuildAircraft = AIRCRAFT_NONE;
 			BuildStructure = STRUCT_NONE;
 			if (can_build_harvester) {
-				BuildUnit = Rule->HarvesterUnit[0]->HeapID;
+				BuildUnit = harvester->HeapID;
 				ProductionMode = UNITS;
 			} else {
 				int next = Base.Next_Buildable_Index();
 				if (next != 0) {
-					Base.Nodes.Insert_After(next - 1, BaseNodeClass(Rule->BuildRefinery[0]->HeapID, Cell(0, 0)));
+					Base.Nodes.Insert_After(next - 1, BaseNodeClass(refinery->HeapID, Cell(0, 0)));
 					for (j = Base.Nodes.Count() - 1; j > next; j--) {
-						if (Base.Nodes[j].Type == Rule->BuildRefinery[0]->HeapID) {
+						if (Base.Nodes[j].Type >= STRUCT_FIRST && Rule->BuildRefinery.Is_In_List(BuildingTypes[Base.Nodes[j].Type])) {
 							Base.Nodes.Delete_Index(j);
 						}
 					}
@@ -4588,8 +4601,8 @@ int HouseClass::AI_Unit(void)
 {
 	if (BuildUnit != UNIT_NONE) return(TICKS_PER_SECOND);
 
-	int harv = AUQuantity.Value(Rule->HarvesterUnit[0]->HeapID);
-	int ref = ABQuantity.Value(Rule->BuildRefinery[0]->HeapID);
+	int harv = Count_Owned(AUQuantity, Rule->HarvesterUnit);
+	int ref = Count_Owned(ABQuantity, Rule->BuildRefinery);
 	int mult;
 	if (Session.Type == GAME_NORMAL || Difficulty == DIFF_HARD) {
 		mult = 1;
@@ -4602,8 +4615,9 @@ int HouseClass::AI_Unit(void)
 	**	harvester if possible.
 	*/
 	if (IQ >= Rule->IQHarvester && !IsTiberiumShort && !Is_Human_Player() && ref * mult > harv) {
-		if ((unsigned int)Rule->HarvesterUnit[0]->Level <= (unsigned int)Control.TechLevel) {
-			BuildUnit = Rule->HarvesterUnit[0]->HeapID;
+		UnitTypeClass const * harvester = Get_Preferred(Rule->HarvesterUnit);
+		if (harvester != NULL && (unsigned int)harvester->Level <= (unsigned int)Control.TechLevel) {
+			BuildUnit = harvester->HeapID;
 			return(TICKS_PER_SECOND);
 		}
 	}
