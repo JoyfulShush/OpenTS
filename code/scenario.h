@@ -303,6 +303,14 @@ class ScenarioClass {
 		SideType PlayerSide;
 
 		/*
+		 * The picture a launch file asked to show while the scenario loads, and where its bars
+		 * go, kept so that a mission restarted or resumed from a save shows the same picture.
+		 */
+		char LoadScreen[_MAX_PATH];
+		int LoadScreenX;
+		int LoadScreenY;
+
+		/*
 		**	The percentage of money that is allowed to be carried over into the
 		**	following scenario.
 		*/

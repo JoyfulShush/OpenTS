@@ -271,6 +271,9 @@ void ScenarioClass::Reset(void)
 	TransitTheme = THEME_NONE;
 	PlayerHouse = HOUSE_FIRST;
 	PlayerSide = SIDE_FIRST;
+	LoadScreen[0] = '\0';
+	LoadScreenX = 0;
+	LoadScreenY = 0;
 	CarryOverPercent = 0;
 	CarryOverCap = 0;
 	Percent = 0;
@@ -609,30 +612,36 @@ bool Wait_For_Players_To_Load(void)
 
 
 /// <summary>
-/// Puts the picture a launch file asked for in place of the game's own loading backdrop, and
-/// its bar position in place of the game's. A picture that is missing leaves both alone. The
-/// position is taken to be within the picture, so it is centered along with it.
+/// Puts the picture a launch file asked for, or without one the picture the scenario kept from
+/// the launch that started it, in place of the game's own loading backdrop, and its bar position
+/// in place of the game's. A picture that is missing leaves both alone. The position is taken
+/// to be within the picture, so it is centered along with it.
 /// </summary>
-static void Apply_Custom_Load_Screen(char const * & background, Point2D & bar)
+/// <returns>Returns with where the picture came from, or NULL when the game's own stands.</returns>
+static char const * Apply_Custom_Load_Screen(char const * & background, Point2D & bar)
 {
-	if (Session.LoadScreen[0] == '\0') {
-		return;
+	bool launched = Session.LoadScreen[0] != '\0';
+	char const * name = launched ? Session.LoadScreen : Scen->LoadScreen;
+	int x = launched ? Session.LoadScreenX : Scen->LoadScreenX;
+	int y = launched ? Session.LoadScreenY : Scen->LoadScreenY;
+	if (name[0] == '\0') {
+		return(NULL);
 	}
 
-	CCFileClass file(Session.LoadScreen);
+	CCFileClass file(name);
 	if (!file.Is_Available()) {
-		DebugString("The load screen %s is missing.\n", Session.LoadScreen);
-		return;
+		DebugString("The load screen %s is missing.\n", name);
+		return(NULL);
 	}
 
-	background = Session.LoadScreen;
+	background = name;
 
 	int width = 0;
 	int height = 0;
-	if (Session.LoadScreenX > 0 && Session.LoadScreenY > 0 && Read_PCX_Size(file, width, height)) {
-		bar = Point2D(Session.LoadScreenX, Session.LoadScreenY)
-			+ Point2D((VisibleRect.Width - width) / 2, (VisibleRect.Height - height) / 2);
+	if (x > 0 && y > 0 && Read_PCX_Size(file, width, height)) {
+		bar = Point2D(x, y) + Point2D((VisibleRect.Width - width) / 2, (VisibleRect.Height - height) / 2);
 	}
+	return(launched ? "from the launch file" : "kept by the scenario");
 }
 
 
@@ -694,8 +703,8 @@ bool Read_Scenario(char const * fname)
 
 		Point2D prog_bar_pos;
 		char const * background = Pick_Load_Background_Name(prog_bar_pos);
-		Apply_Custom_Load_Screen(background, prog_bar_pos);
-		DebugString("Loading screen %s%s\n", background, background == Session.LoadScreen ? " (from the launch file)" : "");
+		char const * source = Apply_Custom_Load_Screen(background, prog_bar_pos);
+		DebugString("Loading screen %s%s%s%s\n", background, source != NULL ? " (" : "", source != NULL ? source : "", source != NULL ? ")" : "");
 		Progress.Initialize(100, players);
 
 		char * prog_msg = NULL;
@@ -1852,6 +1861,14 @@ bool Read_Scenario_INI(CCINIClass const & ini, bool is_mapgen)
 		return(false);
 	}
 	Scen->PlayerSide = playerside;
+
+	// A launch file's loading picture is kept with the scenario for a restart or a resume.
+	if (Session.LoadScreen[0] != '\0') {
+		strncpy(Scen->LoadScreen, Session.LoadScreen, sizeof(Scen->LoadScreen));
+		Scen->LoadScreen[ARRAY_SIZE(Scen->LoadScreen) - 1] = '\0';
+		Scen->LoadScreenX = Session.LoadScreenX;
+		Scen->LoadScreenY = Session.LoadScreenY;
+	}
 	Scen->SpeechSide = playerside;
 
 	/*
@@ -3366,6 +3383,9 @@ void ScenarioClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(TransitTheme);
 	stream.Serialize(PlayerHouse);
 	stream.Serialize(PlayerSide);
+	stream.Serialize(LoadScreen);
+	stream.Serialize(LoadScreenX);
+	stream.Serialize(LoadScreenY);
 	stream.Serialize(CarryOverPercent);
 	stream.Serialize(CarryOverCap);
 	stream.Serialize(Percent);
