@@ -6832,14 +6832,17 @@ void HouseClass::Begin_Construction(Cell const & center)
 
 
 /// <summary>
-/// Fetches the Ownable bit of the country whose types this house plans, prices and is handed.
-/// Every role list in the rules is resolved through it, so that the same country answers
-/// wherever the house asks what it may build.
+/// Fetches the Ownable bit of the country this house acts as, which every role list in the
+/// rules is resolved through.
 /// </summary>
-/// <returns>Returns with the bit an Ownable field carries for that country.</returns>
+/// <returns>Returns with the bit an Ownable field carries for that country, or 0 for a house
+/// acting for no country.</returns>
 int HouseClass::Acted_Mask(void) const
 {
-	return(1 << HouseTypes.ID(Class));
+	if (ActLike < HOUSE_FIRST || ActLike >= HouseTypes.Count() || ActLike >= 32) {
+		return(0);
+	}
+	return(1 << ActLike);
 }
 
 

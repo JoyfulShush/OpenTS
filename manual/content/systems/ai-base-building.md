@@ -65,14 +65,14 @@ A house whose list is empty generates one when either of two things happens: an 
 ## Building the plan
 
 1. **Candidates.** A BuildingType is a candidate while all of this holds:
-   - its [`Owner`](/keys/owner/) includes this house;
+   - its [`Owner`](/keys/owner/) includes the country this house [acts as](/keys/actslike/);
    - it is [`AIBuildThis=yes`](/keys/aibuildthis/);
    - its [`TechLevel`](/keys/techlevel/) is within the house's scenario tech level;
    - it is not [`Weeder=yes`](/keys/weeder/), or the map carries a veinhole monster;
    - it is not the excluded plug — under the Firestorm addon one of the hard-coded IDs `GAPLUG2`, `GAPLUG3` and `GAPLUG4` is drawn at random and left out.
-2. **Seed.** The first [`BuildConst`](/keys/buildconst/) entry that passes that filter, then the first [`BuildPower`](/keys/buildpower/) entry the house may own, when there is one. The first ownable [`BuildBarracks`](/keys/buildbarracks/) entry moves to the head of the candidate list and the first ownable [`BuildWeapons`](/keys/buildweapons/) entry to second place.
+2. **Seed.** The first [`BuildConst`](/keys/buildconst/) entry that passes that filter, then the first [`BuildPower`](/keys/buildpower/) entry that country may own, when there is one. The first such [`BuildBarracks`](/keys/buildbarracks/) entry moves to the head of the candidate list and the first such [`BuildWeapons`](/keys/buildweapons/) entry to second place.
 3. **Expansion.** Repeated passes append every candidate whose [`Prerequisite`](/keys/prerequisite/) list the queue already satisfies, resolving a generic prerequisite through `BuildWeapons`, `BuildBarracks`, [`BuildRadar`](/keys/buildradar/) or [`BuildTech`](/keys/buildtech/) and treating any `BuildConst` construction yard as always satisfied. A [`Helipad=yes`](/keys/helipad/) type is appended one to three extra times; the hard-coded `GAPLUG` waits for a pass that adds nothing else.
-4. **Refineries.** `2 - Difficulty` extra copies of the first ownable [`BuildRefinery`](/keys/buildrefinery/) entry, at random positions after the first refinery.
+4. **Refineries.** `2 - Difficulty` extra copies of the first [`BuildRefinery`](/keys/buildrefinery/) entry that country may own, at random positions after the first refinery.
 5. **Defenses.** A queue shorter than three entries — a house that may own no listed yard or power plant — is written to the plan as it stands, with nothing woven in. Otherwise a build cost running from the cost of queue entries 1 and 2 accumulates entry by entry, and before each entry the plan calls for `(cost - 2000) / 1500` defenses scaled by [`NodBaseDefenseCoefficient`](/keys/nodbasedefensecoefficient/) for a house named "Nod" and by [`GDIBaseDefenseCoefficient`](/keys/gdibasedefensecoefficient/) for every other house. Each unit of shortfall becomes a `-1` placeholder, preceded by a [`WallTower`](/keys/walltower/) node for GDI. When the house is Nod, or when [`AIBuildsWalls=no`](/keys/aibuildswalls/), further placeholders follow: `(3 - Difficulty) * 3` of them for a house named GDI, and `(3 - Difficulty) * 2` for every other house.
 6. **Wall.** A `-3` node closes the list when `AIBuildsWalls=yes` and the house is either not Nod or has [`NodAIBuildsWalls=yes`](/keys/nodaibuildswalls/).
 
@@ -134,7 +134,7 @@ A defense node is filled in against the quadrant of the base that needs it most.
 
 A BuildingType is a candidate for that category while all of this holds:
 
-- the house may own it;
+- the country the house acts as may own it;
 - its value in that category is above zero;
 - its `TechLevel` is within the house's reach;
 - its prerequisites are met by the non-defense buildings the house owns, plus `WallTower` for GDI.
@@ -159,7 +159,7 @@ The wall ring is the base rectangle grown by one cell on each side, walked along
 
 A run becomes wall nodes once it reaches five cells, or sooner when an overlay or a ramp cuts it short.
 
-Wall nodes come from the first ownable [`ConcreteWalls`](/keys/concretewalls/) entry and are all appended before any gate node. Gate nodes — [`EWGates`](/keys/ewgates/) on the north and south edges, [`NSGates`](/keys/nsgates/) on the east and west — take the midpoint of a run and consume three wall slots each; a run cut short by an overlay or a ramp is laid as plain wall. For GDI the wall cells also become the [threat ring](#base-defenses) the defense planner draws from, and pairs of a `WallTower` node and a `-1` node are appended, `0.2` per wall node and capped at `(3 - Difficulty) * `[`GDIWallDefenseCoefficient`](/keys/gdiwalldefensecoefficient/)` + `[`GDIWallDefense`](/keys/gdiwalldefense/). The base rectangle then becomes the wall ring, so the next wall is planned one ring further out.
+Wall nodes come from the first [`ConcreteWalls`](/keys/concretewalls/) entry the acted country may own and are all appended before any gate node. Gate nodes — [`EWGates`](/keys/ewgates/) on the north and south edges, [`NSGates`](/keys/nsgates/) on the east and west — take the midpoint of a run and consume three wall slots each; a run cut short by an overlay or a ramp is laid as plain wall. For GDI the wall cells also become the [threat ring](#base-defenses) the defense planner draws from, and pairs of a `WallTower` node and a `-1` node are appended, `0.2` per wall node and capped at `(3 - Difficulty) * `[`GDIWallDefenseCoefficient`](/keys/gdiwalldefensecoefficient/)` + `[`GDIWallDefense`](/keys/gdiwalldefense/). The base rectangle then becomes the wall ring, so the next wall is planned one ring further out.
 
 :::caution[Side behavior keys off the house's country name]
 The planner compares the house's country name against the literal strings "GDI" and "NOD", case-insensitively. A house named neither takes the GDI defense coefficient, receives no wall towers and no threat ring — leaving that branch of the defense planner unreachable for it — and answers power shortages with Nod's power plants.
