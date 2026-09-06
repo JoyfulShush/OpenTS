@@ -1505,7 +1505,7 @@ void HouseClass::AI(void)
 					defeated = true;
 				}
 				if (units && Scen->Special.IsHarvesterImmune) {
-					units -= UQuantity.Value(Rule->HarvesterUnit[0]->HeapID);
+					units -= Count_Owned(UQuantity, Rule->HarvesterUnit);
 				}
 				if (units <= 0) {
 					defeated = true;
