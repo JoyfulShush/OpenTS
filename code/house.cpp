@@ -438,13 +438,10 @@ HouseClass::HouseClass(HouseTypeClass const * type) :
 		IsThreatRatingNodeActive = true;
 	}
 
+	// A country that sits out the contest acts for none, so nothing is planned or built on its behalf.
 	ActLike = HOUSE_NONE;
-	if (Class != NULL) {
-		if (strnicmp(Class->Name(), "GDI", 3) == 0) {
-			ActLike = HOUSE_GOOD;
-		} else if (strnicmp(Class->Name(), "Nod", 3) == 0) {
-			ActLike = HOUSE_BAD;
-		}
+	if (Class != NULL && !Class->IsMultiplayPassive) {
+		ActLike = Class->House;
 	}
 }
 
@@ -747,7 +744,7 @@ void HouseClass::Debug_Dump(MonoClass * mono) const
 	mono->Set_Cursor(0, 0);
 
 	mono->Set_Cursor(1, 1);mono->Printf("[%d]%14.14s", Class->House, Class->Name());
-	mono->Set_Cursor(20, 1);mono->Printf("[%d]%13.13s", ActLike, HouseTypes[ActLike]->Name());
+	mono->Set_Cursor(20, 1);mono->Printf("[%d]%13.13s", ActLike, ActLike != HOUSE_NONE ? HouseTypes[ActLike]->Name() : "<none>");
 	mono->Set_Cursor(39, 1);mono->Printf("%2d", Control.TechLevel);
 	mono->Set_Cursor(45, 1);mono->Printf("%2d", Difficulty);
 	mono->Set_Cursor(52, 1);mono->Printf("%2d", State);
@@ -5507,6 +5504,24 @@ void HouseClass::Read_All(CCINIClass const & ini)
 }
 
 
+static HousesType Acts_Like_From(char const * section, char const * value, HousesType defvalue)
+{
+	if (stricmp(value, "<none>") == 0) {
+		return(HOUSE_NONE);
+	}
+
+	HousesType house = HouseTypeClass::From_Name(value);
+	if (house == HOUSE_NONE && (isdigit((unsigned char)value[0]) || value[0] == '-')) {
+		house = (HousesType)atoi(value);
+	}
+	if (house < HOUSE_FIRST || house >= HouseTypes.Count()) {
+		DebugString("[%s] ActsLike=%s names no country; ignored.\n", section, value);
+		return(defvalue);
+	}
+	return(house);
+}
+
+
 /***********************************************************************************************
  * HouseClass::Read_INI -- Reads house specific data from INI.                                 *
  *                                                                                             *
@@ -5539,9 +5554,9 @@ void HouseClass::Read_INI(CCINIClass const & ini)
 	RatioTeamInfantry = ini.Get_Int(hname, "RatioTeamInfantry", 75);
 	RatioTeamUnits = ini.Get_Int(hname, "RatioTeamUnits", 75);
 
-	ActLike = (HousesType)ini.Get_Int(hname, "ActsLike", ActLike);
-	if (ActLike == HOUSE_NONE) {
-		ActLike = HOUSE_FIRST;
+	std::string actslike = ini.Get_String(hname, "ActsLike");
+	if (!actslike.empty()) {
+		ActLike = Acts_Like_From(hname, actslike.c_str(), ActLike);
 	}
 
 	int iq = ini.Get_Int(hname, "IQ", 0);
