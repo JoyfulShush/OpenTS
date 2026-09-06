@@ -1394,7 +1394,7 @@ restart:
 		Show_Mouse();
 
 		if (Session.Type != GAME_NORMAL) {
-			Session.PlayerIsGDI = stricmp(HouseTypes[Session.Players[0]->Player.House]->Name(), "GDI") == 0;
+			Session.PlayerHouse = (HousesType)Session.Players[0]->Player.House;
 		}
 
 		// The menu sets the difficulty pair on every path but a client launch, which chose it.
@@ -6463,6 +6463,38 @@ bool Prep_Speech_For_Side(SideType side)
 	}
 
 	return(true);
+}
+
+
+/// <summary>
+/// Prepares a side's art and interface archives, or the first side's when that side has none.
+/// </summary>
+/// <returns>Returns with the side prepared, or SIDE_NONE when neither could be.</returns>
+SideType Prep_For_Side_Or_First(SideType side)
+{
+	if (Prep_For_Side(side)) {
+		return(side);
+	}
+	if (side != SIDE_FIRST && Prep_For_Side(SIDE_FIRST)) {
+		return(SIDE_FIRST);
+	}
+	return(SIDE_NONE);
+}
+
+
+/// <summary>
+/// Prepares a side's speech archives, or the first side's when that side has none.
+/// </summary>
+/// <returns>Returns with the side prepared, or SIDE_NONE when neither could be.</returns>
+SideType Prep_Speech_For_Side_Or_First(SideType side)
+{
+	if (Prep_Speech_For_Side(side)) {
+		return(side);
+	}
+	if (side != SIDE_FIRST && Prep_Speech_For_Side(SIDE_FIRST)) {
+		return(SIDE_FIRST);
+	}
+	return(SIDE_NONE);
 }
 
 

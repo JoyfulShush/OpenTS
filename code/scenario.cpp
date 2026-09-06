@@ -270,6 +270,7 @@ void ScenarioClass::Reset(void)
 	PreMapSelectMovie = VQ_NONE;
 	TransitTheme = THEME_NONE;
 	PlayerHouse = HOUSE_FIRST;
+	PlayerSide = SIDE_FIRST;
 	CarryOverPercent = 0;
 	CarryOverCap = 0;
 	Percent = 0;
@@ -290,7 +291,6 @@ void ScenarioClass::Reset(void)
 	IsTruckCrate = false;
 	IsMoneyTiberium = false;
 	IsIgnoreGlobalAITriggers = false;
-	IsGDI = true;
 	IsMultiplayerOnly = false;
 	IsMPAIBaseNodes = false;
 	IsCrateBeenPickedUp = false;
@@ -695,6 +695,7 @@ bool Read_Scenario(char const * fname)
 		Point2D prog_bar_pos;
 		char const * background = Pick_Load_Background_Name(prog_bar_pos);
 		Apply_Custom_Load_Screen(background, prog_bar_pos);
+		DebugString("Loading screen %s%s\n", background, background == Session.LoadScreen ? " (from the launch file)" : "");
 		Progress.Initialize(100, players);
 
 		char * prog_msg = NULL;
@@ -1568,6 +1569,20 @@ bool Read_Scenario_INI(char const * fname, bool)
 
 
 /// <summary>
+/// Fetches the side the local player is presented with: that of the country being played.
+/// </summary>
+/// <returns>Returns with the player's country's side, or the first side when it has none.</returns>
+SideType Side_For_Player(void)
+{
+	HousesType house = Scen->PlayerHouse;
+	if (house >= HOUSE_FIRST && house < HouseTypes.Count() && HouseTypes[house]->Side != SIDE_NONE) {
+		return(HouseTypes[house]->Side);
+	}
+	return(SIDE_FIRST);
+}
+
+
+/// <summary>
 /// Fetches the artwork to display while a scenario loads.
 /// The picture is chosen to suit the player's side and the current screen resolution, and
 /// one of the pair available is taken at random so that the loading screen is not always
@@ -1606,11 +1621,11 @@ char const * Pick_Load_Background_Name(Point2D & pos)
 				}
 			}
 		}
-	} else {
-		player = Session.Players[player]->Player.House;
+	} else if (Session.PlayerHouse >= HOUSE_FIRST && Session.PlayerHouse < HouseTypes.Count()) {
+		player = HouseTypes[Session.PlayerHouse]->Side;
 	}
 
-	// Only two sides have loading art, so any other house is shown the first side's.
+	// Only two sides have loading art, so any other side is shown the first side's.
 	if (player < 0 || player > 1) {
 		player = 0;
 	}
@@ -1819,22 +1834,25 @@ bool Read_Scenario_INI(CCINIClass const & ini, bool is_mapgen)
 
 	Session.Update_Progress(30);
 
-	/*
-	**
-	*/
+	// Clearing the scenario emptied the countries, and the rules are read only after the
+	// side's archives are mounted, so the roster is rebuilt before the side is chosen.
+	Prepare_Side_Roster();
+
 	if (Session.Type == GAME_NORMAL) {
 		ini.Get_String(BASIC, "Player", "GDI", buffer, sizeof(buffer));
-		Scen->IsGDI = strcmpi(buffer, "GDI") == 0;
-		Scen->SpeechSide = Scen->IsGDI == true ? SIDE_GDI : SIDE_NOD;
+		HousesType player = HouseTypeClass::From_Name(buffer);
+		Scen->PlayerHouse = player != HOUSE_NONE ? player : HOUSE_FIRST;
 	} else {
-		Scen->IsGDI = Session.PlayerIsGDI;
-		Scen->SpeechSide = Session.PlayerIsGDI == false ? SIDE_NOD : SIDE_GDI;
+		Scen->PlayerHouse = Session.PlayerHouse;
 	}
 
+	SideType playerside = Side_For_Player();
 	DebugString("Calling Prep_For_Side()\n");
-	if (!Prep_For_Side(Scen->IsGDI == true ? SIDE_GDI : SIDE_NOD)) {
+	if (Prep_For_Side_Or_First(playerside) == SIDE_NONE) {
 		return(false);
 	}
+	Scen->PlayerSide = playerside;
+	Scen->SpeechSide = playerside;
 
 	/*
 	**
@@ -1855,7 +1873,8 @@ bool Read_Scenario_INI(CCINIClass const & ini, bool is_mapgen)
 	**
 	*/
 	DebugString("Calling Prep_Speech_For_Side()\n");
-	if (!Prep_Speech_For_Side(Scen->SpeechSide)) {
+	Scen->SpeechSide = Prep_Speech_For_Side_Or_First(Scen->SpeechSide);
+	if (Scen->SpeechSide == SIDE_NONE) {
 		return(false);
 	}
 
@@ -3337,6 +3356,7 @@ void ScenarioClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(BriefingText);
 	stream.Serialize(TransitTheme);
 	stream.Serialize(PlayerHouse);
+	stream.Serialize(PlayerSide);
 	stream.Serialize(CarryOverPercent);
 	stream.Serialize(CarryOverCap);
 	stream.Serialize(Percent);
@@ -3361,7 +3381,6 @@ void ScenarioClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(IsMoneyTiberium);
 	stream.Serialize(IsTiberiumDeathToVisceroid);
 	stream.Serialize(IsIgnoreGlobalAITriggers);
-	stream.Serialize(IsGDI);
 	stream.Serialize(IsMultiplayerOnly);
 	stream.Serialize(IsRandom);
 	stream.Serialize(IsCrateBeenPickedUp);
