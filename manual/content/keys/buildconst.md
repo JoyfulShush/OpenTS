@@ -1,13 +1,13 @@
 ---
 key: BuildConst
-summary: The construction yard BuildingType; only the first entry is read.
+summary: The construction yard BuildingTypes; a building of any listed type is a construction yard.
 see_also: ["system:ai-base-building"]
 when_omitted:
   kind: value
   value: ""
 ---
 
-Entry 0 stands for the construction yard wherever the engine needs one, and entries after it are read by nothing. Only a building of that exact type counts towards a house's construction yards, so a computer house that owns none builds no structures at all and [`ConstructionYard=yes`](/keys/constructionyard/) on another type does not stand in for it. While [the base plan](/systems/ai-base-building/#building-the-plan) is assembled, a [`Prerequisite`](/keys/prerequisite/) naming that type counts as already met. A UnitType whose [`DeploysInto`](/keys/deploysinto/) names it is the MCV a base-building computer house acts on: outside a campaign game it sends one out to hunt while it owns no construction yard, and it deploys one standing guard instead of leaving it there.
+A building of any listed type counts towards its house's construction yards and, as a factory, produces only for the country its own record says it acts as, so a house whose yard is a later entry builds as one whose yard is entry 0 does; [`ConstructionYard=yes`](/keys/constructionyard/) on a type not listed here does not stand in for it. While [the base plan](/systems/ai-base-building/#building-the-plan) is assembled, a [`Prerequisite`](/keys/prerequisite/) naming entry 0 counts as already met. A UnitType whose [`DeploysInto`](/keys/deploysinto/) names entry 0 is the MCV a base-building computer house acts on: outside a campaign game it sends one out to hunt while it owns no construction yard, and it deploys one standing guard instead of leaving it there.
 
 The engine reads entry 0 without checking that the list has one.
 

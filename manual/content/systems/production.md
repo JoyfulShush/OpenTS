@@ -68,7 +68,7 @@ When a player's house orders an object, it searches its structures for one that 
 - it is neither being sold nor queued to be sold;
 - the product is not blocked by its own [build limit](#build-limits);
 - the factory type's [`Owner=`](/keys/owner/) shares at least one country with the product's `Owner=`;
-- **Any of:** the factory's own type is not the first [`BuildConst`](/keys/buildconst/) entry, or the country that construction yard is acting as is one of the product's owners.
+- **Any of:** the factory's own type is not listed in [`BuildConst`](/keys/buildconst/), or that construction yard acts for a country and it is one of the product's owners.
 
 That last term is why a captured construction yard keeps building its original owner's structures.
 

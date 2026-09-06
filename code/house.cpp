@@ -4495,7 +4495,7 @@ int HouseClass::AI_Building(void)
 	/*
 	**	Try to build a power plant if there is insufficient power.
 	*/
-	if (!Scen->Is_Campaign_Base_AI() && b->Drain + Drain > Power - PowerSurplus && b != Rule->BuildConst[0] && b->Drain > 0) {
+	if (!Scen->Is_Campaign_Base_AI() && b->Drain + Drain > Power - PowerSurplus && !Rule->BuildConst.Is_In_List(b) && b->Drain > 0) {
 
 		BuildingTypeClass const * choice;
 
@@ -8606,7 +8606,7 @@ void HouseClass::AI_Takeover(void)
 	BuildingClass * conyard = NULL;
 	for (index = Buildings.Count() - 1; index >= 0; index--) {
 		BuildingClass * bptr = Buildings[index];
-		if (bptr->Class == Rule->BuildConst[0] && bptr->House == this && !bptr->IsInLimbo) {
+		if (Rule->BuildConst.Is_In_List(bptr->Class) && bptr->House == this && !bptr->IsInLimbo) {
 			conyard = bptr;
 			break;
 		}
