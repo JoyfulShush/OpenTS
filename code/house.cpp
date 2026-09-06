@@ -1049,22 +1049,20 @@ int HouseClass::Can_Build(ObjectTypeClass const * type, bool forced, bool includ
 				return(0);
 			}
 
-			/// Checks if there's exactly one owner
-			if (((own - 1) & own) == 0) {
-				bool found = false;
-				for (int i = 0; i < ConYards.Count(); i++) {
-					BuildingClass * conyard = ConYards[i];
-					if (!conyard->IsInLimbo && conyard->IsOn) {
-						if (conyard->Mission != MISSION_DECONSTRUCTION && conyard->MissionQueue != MISSION_DECONSTRUCTION) {
-							if (conyard->ActLike != HOUSE_NONE && ((1 << conyard->ActLike) & own) != 0) {
-								found = true;
-								break;
-							}
+			// Offered only when a yard acting for one of its owners can produce it, which is the
+			// test the factory search applies whatever the owner list holds.
+			bool found = false;
+			for (int i = 0; i < ConYards.Count() && !found; i++) {
+				BuildingClass * conyard = ConYards[i];
+				if (!conyard->IsInLimbo && conyard->IsOn) {
+					if (conyard->Mission != MISSION_DECONSTRUCTION && conyard->MissionQueue != MISSION_DECONSTRUCTION) {
+						if (conyard->ActLike != HOUSE_NONE && ((1 << conyard->ActLike) & own) != 0) {
+							found = true;
 						}
 					}
 				}
-				if (!found) return(0);
 			}
+			if (!found) return(0);
 		}
 	}
 
