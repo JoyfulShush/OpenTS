@@ -1197,10 +1197,7 @@ restart:
 				*/
 				case SEL_MULTIPLAYER_GAME: {
 						Session.Read_MultiPlayer_Settings();
-
-						for (int house = 0; house < HouseTypes.Count(); house++) {
-							HouseTypes[house]->Read_INI(*RuleINI);
-						}
+						Prepare_Side_Roster();
 
 						Session.Suspended = 0;
 
@@ -1251,13 +1248,7 @@ restart:
 						case GAME_IPX: {
 							Cheat_Disable();
 							Session.Read_MultiPlayer_Settings();
-
-							/*
-							**	Fetch the house attribute override values.
-							*/
-							for (int house = 0; house < HouseTypes.Count(); house++) {
-								HouseTypes[house]->Read_INI(*RuleINI);
-							}
+							Prepare_Side_Roster();
 
 							Session.Type = GAME_IPX;
 							Session.CommProtocol = COMM_PROTOCOL_MULTI_E_COMP;
@@ -6610,9 +6601,7 @@ int New_Main_Menu(void)
 
 	if (Session.Type != GAME_NORMAL) {
 		Session.Read_MultiPlayer_Settings();
-		for (int i = 0; i < HouseTypes.Count(); i++) {
-			HouseTypes[i]->Read_INI(*RuleINI);
-		}
+		Prepare_Side_Roster();
 		Session.Suspended = false;
 		Session.Read_Scenario_Descriptions();
 		return(SEL_MULTIPLAYER_GAME);
