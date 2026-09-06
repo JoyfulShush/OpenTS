@@ -1446,7 +1446,7 @@ void HouseClass::AI(void)
 			}
 		}
 		if (SpeakPowerDelay == 0 && Power_Fraction() < 1) {
-			if (ABQuantity.Value(Rule->BuildConst[0]->HeapID) > 0) {
+			if (Owns_Any(ABQuantity, Rule->BuildConst)) {
 				Speak(VOX_LOW_POWER);
 				SpeakPowerDelay = Options.Normalize_Delay(int(TICKS_PER_MINUTE * Rule->SpeakDelay));
 //				Map.Flash_Power();
@@ -6847,7 +6847,7 @@ bool HouseClass::AI_Has_Prerequisites(TechnoTypeClass const * type, DynamicVecto
 		if (type->Prerequisite[i] >= 0) {
 
 			BuildingTypeClass const * b = BuildingTypes[type->Prerequisite[i]];
-			if (b != Rule->BuildConst[0]) {
+			if (!Rule->BuildConst.Is_In_List(b)) {
 
 				bool found = false;
 				for (int j = 0; j < ownedcount; j++) {
@@ -6959,16 +6959,18 @@ void HouseClass::Make_Base_Nodes(void)
 	int buildable_count = buildables.Count();
 	DynamicVectorClass<BuildingTypeClass const *> startingqueue;
 
-	BuildingTypeClass const * conyard = Rule->BuildConst[0];
 	for (index = 0; index < buildable_count; index++) {
-		if (conyard == buildables[index]) {
+		if (Rule->BuildConst.Is_In_List(buildables[index])) {
 			isadded[index] = true;
-			startingqueue.Add(conyard);
+			startingqueue.Add(buildables[index]);
 			break;
 		}
 	}
 
-	startingqueue.Add(Get_First_Acted(Rule->BuildPower));
+	BuildingTypeClass const * power = Get_First_Acted(Rule->BuildPower);
+	if (power != NULL) {
+		startingqueue.Add(power);
+	}
 
 	BuildingTypeClass const * barracks = Get_First_Acted(Rule->BuildBarracks);
 	for (index = 0; index < buildables.Count(); index++) {
@@ -7049,6 +7051,14 @@ void HouseClass::Make_Base_Nodes(void)
 			break;
 		}
 		refpos++;
+	}
+
+	// A queue too short to weave defenses into is the whole plan.
+	if (startingqueue.Count() < 3) {
+		for (index = 0; index < startingqueue.Count(); index++) {
+			Base.Nodes.Add(BaseNodeClass(startingqueue[index]->HeapID, Cell(0, 0)));
+		}
+		return;
 	}
 
 	DynamicVectorClass<BuildingTypeClass const *> finalqueue = {startingqueue[0], startingqueue[1], startingqueue[2]};
