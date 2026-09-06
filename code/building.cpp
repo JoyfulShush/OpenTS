@@ -3656,7 +3656,7 @@ void BuildingClass::Grand_Opening(bool captured)
 		/*
 		**	Helicopter pads get a free attack helicopter.
 		*/
-		if (!Rule->IsSeparate && Class->IsHoverPad && !captured) {
+		if (!Rule->IsSeparate && Class->IsHoverPad && !captured && Rule->PadAircraft.Count() > 0) {
 			ScenarioInit++;
 			AircraftClass * air = new AircraftClass(Rule->PadAircraft[0], House);
 			if (air) {
