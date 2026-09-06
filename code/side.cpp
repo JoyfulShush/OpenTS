@@ -14,6 +14,7 @@
 
 #include "builtype.h"
 #include "ccini.h"
+#include "unittype.h"
 #include "crc.h"
 #include "findmake.h"
 #include "globals.h"
@@ -33,6 +34,7 @@ SideClass::SideClass(char const * ininame) :
 	RegularPowerPlant(NULL),
 	AdvancedPowerPlant(NULL),
 	PowerTurbine(NULL),
+	HunterSeeker(NULL),
 	AIWallTowers(),
 	AIBaseDefenseCoefficient(1.0),
 	AIWallDefense(0.0),
@@ -118,6 +120,7 @@ bool SideClass::Read_INI(CCINIClass const & ini)
 	RegularPowerPlant = TGet_Class(ini, Name(), "RegularPowerPlant", RegularPowerPlant);
 	AdvancedPowerPlant = TGet_Class(ini, Name(), "AdvancedPowerPlant", AdvancedPowerPlant);
 	PowerTurbine = TGet_Class(ini, Name(), "PowerTurbine", PowerTurbine);
+	HunterSeeker = TGet_Class(ini, Name(), "HunterSeeker", HunterSeeker);
 	AIWallTowers = TGet_TypeList<BuildingTypeClass>(ini, Name(), "AIWallTowers", AIWallTowers);
 	AIBaseDefenseCoefficient = ini.Get_Float(Name(), "AIBaseDefenseCoefficient", AIBaseDefenseCoefficient);
 	AIWallDefense = ini.Get_Float(Name(), "AIWallDefense", AIWallDefense);
@@ -156,6 +159,7 @@ void SideClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(RegularPowerPlant);
 	stream.Serialize(AdvancedPowerPlant);
 	stream.Serialize(PowerTurbine);
+	stream.Serialize(HunterSeeker);
 	stream.Serialize(AIWallTowers);
 	stream.Serialize(AIBaseDefenseCoefficient);
 	stream.Serialize(AIWallDefense);

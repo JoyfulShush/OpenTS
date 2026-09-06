@@ -10430,7 +10430,7 @@ HunterSeeker:
       kind: identifier
       source: object-type
     value_type: boolean
-    status: generated
+    status: needs_review
     _provenance:
       default_candidate: 'no'
       declared_in: TechnoTypeClass
@@ -10438,6 +10438,20 @@ HunterSeeker:
       source: code/techtype.cpp
       guard: null
     level: TechnoTypeClass
+  - applies_to: *id002
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: class
+    status: needs_review
+    _provenance:
+      default_candidate: none
+      declared_in: SideClass
+      member: HunterSeeker
+      source: code/side.cpp
+      guard: null
+    level: SideClass
 HunterSeekerAscentSpeed:
   key: HunterSeekerAscentSpeed
   scopes:

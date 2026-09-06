@@ -1151,6 +1151,7 @@ bool RulesClass::General(CCINIClass const & ini)
 			SideClass * first = Sides[0];
 			if (ini.Is_Present(GENERAL, "GDIPowerPlant")) first->RegularPowerPlant = GDIPowerPlant;
 			if (ini.Is_Present(GENERAL, "GDIPowerTurbine")) first->PowerTurbine = GDIPowerTurbine;
+			if (ini.Is_Present(GENERAL, "GDIHunterSeeker")) first->HunterSeeker = GDIHunterSeeker;
 			if (ini.Is_Present(GENERAL, "WallTower")) {
 				first->AIWallTowers.Clear();
 				if (WallTower != NULL) first->AIWallTowers.Add(WallTower);
@@ -1160,6 +1161,7 @@ bool RulesClass::General(CCINIClass const & ini)
 			SideClass * second = Sides[1];
 			if (ini.Is_Present(GENERAL, "NodRegularPower")) second->RegularPowerPlant = NodRegularPower;
 			if (ini.Is_Present(GENERAL, "NodAdvancedPower")) second->AdvancedPowerPlant = NodAdvancedPower;
+			if (ini.Is_Present(GENERAL, "NodHunterSeeker")) second->HunterSeeker = NodHunterSeeker;
 			if (ini.Is_Present(GENERAL, "NodAIBuildsWalls")) second->IsAIBuildsWalls = NodAIBuildsWalls;
 		}
 		FillEarliestTeamProbability = ini.Get_IntList(GENERAL, "FillEarliestTeamProbability", FillEarliestTeamProbability);

@@ -262,7 +262,7 @@ A one-time missile has no silo at all. It is created from the map edge closest t
 
 ### Hunter seeker
 
-The house's structures are scanned against [`HSBuilding`](/keys/hsbuilding/) and the last match is kept, not the first. The drone appears at the closest cell to that structure that infantry could walk into — the drone is a vehicle, but the search that places it asks for ground crossable on foot — and only if that cell lies inside the playable area, the region a scenario declares with `[Map] LocalSize=`. Otherwise nothing is created and the charge is spent. [`ActsLike=`](/keys/actslike/) decides which type is used: a house acting as GDI gets [`GDIHunterSeeker`](/keys/gdihunterseeker/) and every other house [`NodHunterSeeker`](/keys/nodhunterseeker/). A drone that cannot be placed is deleted; one that can acquires its own target and attacks.
+The house's structures are scanned against [`HSBuilding`](/keys/hsbuilding/) and the last match is kept, not the first. The drone appears at the closest cell to that structure that infantry could walk into — the drone is a vehicle, but the search that places it asks for ground crossable on foot — and only if that cell lies inside the playable area, the region a scenario declares with `[Map] LocalSize=`. Otherwise nothing is created and the charge is spent. The type is the [`HunterSeeker`](/keys/hunterseeker/#scope-side) of the side of the country the firing house [acts as](/keys/actslike/); a house acting for no side, or for a side that names no drone, spends the charge and launches nothing. A drone that cannot be placed is deleted; one that can acquires its own target and attacks.
 
 ### EM pulse
 
