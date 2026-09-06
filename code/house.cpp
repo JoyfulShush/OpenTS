@@ -477,14 +477,7 @@ bool HouseClass::Can_Make_Money(void)
 			return(true);
 		}
 
-		bool hasfactory = false;
-		for (int index = 0; index < Rule->BuildWeapons.Count(); index++) {
-			if (hasfactory || ABQuantity.Value(Rule->BuildWeapons[index]->HeapID) > 0) {
-				hasfactory = true;
-			} else {
-				hasfactory = false;
-			}
-		}
+		bool hasfactory = Owns_Any(ABQuantity, Rule->BuildWeapons);
 
 		int factorycost = Rule->BuildWeapons[0]->Cost_Of(this);
 		if ((hasfactory && credits >= harvcost) || (credits >= harvcost + factorycost) || (credits >= refcost)) {
@@ -8263,23 +8256,8 @@ void HouseClass::Update_Production_Mode(RTTIType type)
 
 		case UNITS:
 			if (Available_Money() < Rule->AIAlternateProductionCreditCutoff) {
-				bool hasbarracks = false;
-				for (int i = 0; i < Rule->BuildBarracks.Count(); i++) {
-					if (!hasbarracks && ABQuantity.Value(Rule->BuildBarracks[i]->HeapID) <= 0) {
-						hasbarracks = false;
-					} else {
-						hasbarracks = true;
-					}
-				}
-
-				bool hasweapons = false;
-				for (int j = 0; j < Rule->BuildWeapons.Count(); j++) {
-					if (!hasweapons && ABQuantity.Value(Rule->BuildWeapons[j]->HeapID) <= 0) {
-						hasweapons = false;
-					} else {
-						hasweapons = true;
-					}
-				}
+				bool hasbarracks = Owns_Any(ABQuantity, Rule->BuildBarracks);
+				bool hasweapons = Owns_Any(ABQuantity, Rule->BuildWeapons);
 
 				if (!hasweapons || !hasbarracks || Drain > Power || Random_Pick(0, 1) == 0) {
 					if (type != RTTI_BUILDING) {

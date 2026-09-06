@@ -815,6 +815,8 @@ class HouseClass : public AbstractClass
 		void Begin_Construction(void);
 		void Begin_Construction(Cell const & center);
 		BuildingTypeClass const * Get_First_Ownable(DynamicVectorClass<BuildingTypeClass const *> const & owned) const;
+		template<typename T> bool Owns_Any(CounterClass const & tally, TypeList<T const *> const & list) const;
+		template<typename T> int Count_Owned(CounterClass const & tally, TypeList<T const *> const & list) const;
 		bool AI_Has_Prerequisites(TechnoTypeClass const * type, DynamicVectorClass<BuildingTypeClass const *> & owned, int ownedcount) const;
 		void Make_Base_Nodes(void);
 		static int Base_Cell_Weight_By_Distance(HouseClass const & house, Cell const & cell, int tie_breaker, int context);
@@ -1122,6 +1124,31 @@ class HouseClass : public AbstractClass
 		 */
 		int PowerSurplus;
 };
+
+
+// The caller's tally decides whether a type still under construction counts.
+template<typename T>
+inline bool HouseClass::Owns_Any(CounterClass const & tally, TypeList<T const *> const & list) const
+{
+	for (int index = 0; index < list.Count(); index++) {
+		if (tally.Value(list[index]->HeapID) > 0) {
+			return(true);
+		}
+	}
+	return(false);
+}
+
+
+template<typename T>
+inline int HouseClass::Count_Owned(CounterClass const & tally, TypeList<T const *> const & list) const
+{
+	int count = 0;
+	for (int index = 0; index < list.Count(); index++) {
+		count += tally.Value(list[index]->HeapID);
+	}
+	return(count);
+}
+
 
 HouseClass * House_From_HousesType(HousesType house);
 HouseClass * House_At(int spawn_waypoint);
