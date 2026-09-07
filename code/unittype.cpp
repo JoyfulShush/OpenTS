@@ -134,6 +134,8 @@ UnitTypeClass::UnitTypeClass(char const * ininame) :
 	StartDeathFrame(-1),
 	MaxDeathCounter(-1),
 	Facings(FACING_COUNT),
+	TurretFacings(32),
+	StartTurretFrame(-1),
 	WalkFrames(12),
 	FiringFrames(0),
 	HeapID(UNIT_NONE),
@@ -424,6 +426,8 @@ bool UnitTypeClass::Read_INI(CCINIClass const & ini)
 		}
 
 		Facings = ArtINI.Get_Int(Graphic_Name(), "Facings", Facings);
+		TurretFacings = ArtINI.Get_Int(Graphic_Name(), "TurretFacings", TurretFacings);
+		StartTurretFrame = ArtINI.Get_Int(Graphic_Name(), "StartTurretFrame", StartTurretFrame);
 
 		if (StartWalkFrame == -1) {
 			StartWalkFrame = 0;
@@ -585,6 +589,8 @@ void UnitTypeClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(StartDeathFrame);
 	stream.Serialize(MaxDeathCounter);
 	stream.Serialize(Facings);
+	stream.Serialize(TurretFacings);
+	stream.Serialize(StartTurretFrame);
 	stream.Serialize(WalkFrames);
 	stream.Serialize(FiringFrames);
 	stream.Serialize(AltImageFile);

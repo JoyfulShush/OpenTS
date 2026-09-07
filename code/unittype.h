@@ -262,10 +262,22 @@ class UnitTypeClass : public TechnoTypeClass
 
 		/*
 		 * This specifies how many facings the shape artwork of this vehicle provides.
-		 * Artwork with eight facings is indexed by the vehicle's own heading; anything
-		 * else is drawn from a single facing regardless of which way the vehicle points.
+		 * Artwork cut into 8, 16, 32 or 64 facings is indexed by the vehicle's own heading;
+		 * anything else is drawn from a single facing regardless of which way it points.
 		 */
 		int Facings;
+
+		/*
+		 * This specifies how many facings the turret artwork of this vehicle provides, which
+		 * need not match the hull. Every stock turret is cut into 32.
+		 */
+		int TurretFacings;
+
+		/*
+		 * This is the frame the turret artwork begins at, or -1 to take the frame the
+		 * layout puts it at, eight walk blocks in however many facings the hull has.
+		 */
+		int StartTurretFrame;
 
 		/*
 		 * This is the number of frames in the walking animation of a shape based vehicle,

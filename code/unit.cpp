@@ -2735,11 +2735,7 @@ void UnitClass::Unit_Draw_Shape(Point2D xdrawpoint, Rect xcliprect, int brightne
 		return;
 	}
 
-	if (Class->Facings == FACING_COUNT) {
-		shapenum = Facing_Add(PrimaryFacing.Current().Round_To_8(), FACING_45);
-	} else {
-		shapenum = 0;
-	}
+	shapenum = Shape_Facing_Index(PrimaryFacing.Current(), Class->Facings);
 
 	if (Locomotion->Is_Moving()) {
 		shapenum = Class->StartWalkFrame + shapenum * Class->WalkFrames + TotalFramesWalked % Class->WalkFrames;
@@ -2851,8 +2847,14 @@ void UnitClass::Unit_Draw_Shape(Point2D xdrawpoint, Rect xcliprect, int brightne
 			Draw_Voxel(Class->AuxVoxel2, 0, -1, 0, srect, pt, Get_Isometric_View_Matrix() * nmtx, brightness, ShapeFlags_Type(SHAPE_ZGRAD|SHAPE_ALPHA));
 		}
 
-		Dir32 d = SecondaryFacing.Current().As_Dir32();
-		Draw_Object(shapefile, ((d + 4) % 32U) + 8 * Class->WalkFrames, pt, srect, DIR_N, 256, 0, ZGRAD_GROUND, false, brightness, NULL, 0, Point2D(0, 0), ShapeFlags_Type(SHAPE_NOTRANS|SHAPE_ALPHA|SHAPE_ZGRAD));
+		// Eight rather than Facings, because artwork lays the strip after eight walk blocks.
+		int turretframe = Class->StartTurretFrame;
+		if (turretframe == -1) {
+			turretframe = FACING_COUNT * Class->WalkFrames;
+		}
+
+		turretframe += Shape_Facing_Index(SecondaryFacing.Current(), Class->TurretFacings);
+		Draw_Object(shapefile, turretframe, pt, srect, DIR_N, 256, 0, ZGRAD_GROUND, false, brightness, NULL, 0, Point2D(0, 0), ShapeFlags_Type(SHAPE_NOTRANS|SHAPE_ALPHA|SHAPE_ZGRAD));
 
 		/*
 		 * The the voxel barrel above the turret at other angles

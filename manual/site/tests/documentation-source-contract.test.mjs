@@ -844,3 +844,27 @@ test('A side is declared in the side list alone', () => {
 		'a country the side list placed keeps that side',
 	);
 });
+
+test('Shape facing selection admits four counts and keeps northwest on index zero', () => {
+	const face = source('code/face.h');
+	const select = functionBody(face, 'inline int Shape_Facing_Index(DirType dir, int count)');
+
+	assertOrdered(select, ['case 8:', 'case 16:', 'case 32:', 'case 64:', 'default:'], 'the supported counts');
+	assert.match(select, /Round_To_8\(\)\s*\+\s*1\)\s*%\s*8/, 'eight facings keep the bias they always had');
+	assert.match(select, /Round_To_16\(\)\s*\+\s*2\)\s*%\s*16/, 'sixteen facings bias by an eighth of a turn');
+	assert.match(select, /Round_To_32\(\)\s*\+\s*4\)\s*%\s*32/, 'thirty-two facings bias by an eighth of a turn');
+	assert.match(select, /Round_To_64\(\)\s*\+\s*8\)\s*%\s*64/, 'sixty-four facings bias by an eighth of a turn');
+	assert.match(select, /default:\s*return\(0\)/, 'any other count draws index zero');
+});
+
+test('The turret strip is derived from eight walk blocks whatever the hull is cut into', () => {
+	const unit = functionBody(
+		source('code/unit.cpp'),
+		'void UnitClass::Unit_Draw_Shape(Point2D xdrawpoint, Rect xcliprect, int brightness) const',
+	);
+
+	assert.match(unit, /turretframe\s*=\s*FACING_COUNT\s*\*\s*Class->WalkFrames/, 'the derived strip follows eight walk blocks');
+	assert.match(unit, /Class->StartTurretFrame/, 'authored artwork may move the strip');
+	assert.match(unit, /Shape_Facing_Index\(SecondaryFacing\.Current\(\), Class->TurretFacings\)/, 'the turret uses its own count');
+	assert.match(unit, /Shape_Facing_Index\(PrimaryFacing\.Current\(\), Class->Facings\)/, 'the hull uses its own count');
+});

@@ -21058,6 +21058,23 @@ StartStateAI:
       source: code/ptype.cpp
       guard: null
     level: ParticleTypeClass
+StartTurretFrame:
+  key: StartTurretFrame
+  scopes:
+  - applies_to: *id015
+    file: art.ini
+    section:
+      kind: image
+      fallback: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '-1'
+      declared_in: UnitTypeClass
+      member: StartTurretFrame
+      source: code/unittype.cpp
+      guard: null
+    level: UnitTypeClass
 StartWalkFrame:
   key: StartWalkFrame
   scopes:
@@ -23612,6 +23629,23 @@ TurretChargeAnimRate:
       source: code/builtype.cpp
       guard: null
     level: BuildingTypeClass
+TurretFacings:
+  key: TurretFacings
+  scopes:
+  - applies_to: *id015
+    file: art.ini
+    section:
+      kind: image
+      fallback: object-type
+    value_type: integer
+    status: generated
+    _provenance:
+      default_candidate: '32'
+      declared_in: UnitTypeClass
+      member: TurretFacings
+      source: code/unittype.cpp
+      guard: null
+    level: UnitTypeClass
 TurretNotExportedOnGround:
   key: TurretNotExportedOnGround
   scopes:
