@@ -7619,7 +7619,7 @@ bool HouseClass::AI_Build_Defense(int nodeindex, DynamicVectorClass<Cell> * cell
 		BuildingClass * building = Buildings[i];
 		if (building->House == this) {
 			BuildingTypeClass * type = building->Class;
-			if (!type->IsBaseDefense && type != Rule->WallTower) {
+			if (!type->IsBaseDefense && !Is_Acted_Tower(type)) {
 				owned.Add(building->Class);
 			}
 		}
