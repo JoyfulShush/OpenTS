@@ -2940,9 +2940,16 @@ void UnitClass::Draw_It(Point2D const & point, Rect const & cliprect) const
 		}
 
 		UnitTypeClass * oldclass = Class;
-		if (Class->IsToHarvest && IsDumping) {
-			if (Rule->UnloadingHarvester != NULL) {
-				((UnitClass *)this)->Class = (UnitTypeClass *)Rule->UnloadingHarvester;
+		if (IsDumping && (Class->IsToHarvest || Class->IsToVeinHarvest)) {
+
+			// The rules default has only ever covered Tiberium harvesters, so a weeder
+			// swaps only where its own type names a class.
+			UnitTypeClass const * unloading = Class->IsToHarvest ? Rule->UnloadingHarvester : NULL;
+			if (Class->UnloadingClass != NULL) {
+				unloading = Class->UnloadingClass;
+			}
+			if (unloading != NULL) {
+				((UnitClass *)this)->Class = (UnitTypeClass *)unloading;
 			}
 		}
 

@@ -23919,6 +23919,23 @@ UnitRepair:
       source: code/builtype.cpp
       guard: null
     level: BuildingTypeClass
+UnloadingClass:
+  key: UnloadingClass
+  scopes:
+  - applies_to: *id003
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: class
+    status: generated
+    _provenance:
+      default_candidate: none
+      declared_in: TechnoTypeClass
+      member: UnloadingClass
+      source: code/techtype.cpp
+      guard: null
+    level: TechnoTypeClass
 UnloadingHarvester:
   key: UnloadingHarvester
   scopes:
