@@ -19,6 +19,3 @@ A docked harvester was drawn as the one vehicle `UnloadingHarvester=` names for 
 in the rules, so a set of harvesters could not carry unloading artwork of their own. The new
 `UnloadingClass=` names that vehicle per type and overrides the rules-wide value. A `Weeder=yes`
 vein harvester, which the rules-wide value has never reached, can now be exchanged this way too.
-
-Saves made by earlier development snapshots of this cycle no longer load, because the stored
-type definitions grew by the new type key.
