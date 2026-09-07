@@ -55,7 +55,6 @@
 #include "wsproto.h"
 
 #include "dbgprint.h"
-#include "globals.h"
 #include "netadmit.h"
 #include "vector.h"
 

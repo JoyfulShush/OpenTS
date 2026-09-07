@@ -33,8 +33,6 @@
 
 #include "wsproto.h"
 
-#include <nspapi.h>
-
 
 /*
 **	Class to allow access to UDP specific portions of the Winsock interface.
