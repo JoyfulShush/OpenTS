@@ -15,6 +15,7 @@
 #include "dbgprint.h"
 
 #include <algorithm>
+#include <cstring>
 
 /*
  * The directories the command line named. Empty means the game's own directory, so an
