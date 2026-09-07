@@ -1838,7 +1838,7 @@ bool Read_Scenario_INI(CCINIClass const & ini, bool is_mapgen)
 	**
 	*/
 	DebugString("Initializing Theater\n");
-	Scen->Theater = ini.Get_TheaterType("Map", "Theater", THEATER_TEMPERATE);
+	Scen->Theater = ini.Get_TheaterType("Map", "Theater", THEATER_FIRST);
 	Init_Theater(Scen->Theater);
 
 	Session.Update_Progress(30);

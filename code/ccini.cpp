@@ -1377,31 +1377,24 @@ bool CCINIClass::Put_VQType(char const * section, char const * entry, VQType val
 }
 
 
-/***********************************************************************************************
- * CCINIClass::Get_TheaterType -- Fetch the theater type from the INI database.                *
- *                                                                                             *
- *    This will fetch the theater identifier from the INI database.                            *
- *                                                                                             *
- * INPUT:   section  -- Identifier for the section to search for the entry under.              *
- *                                                                                             *
- *          entry    -- Identifier for the entry to search for.                                *
- *                                                                                             *
- *          defvalue -- The default value to use if the entry could not be located.            *
- *                                                                                             *
- * OUTPUT:  Returns with the theater type found. If the entry could not be found, then the     *
- *          default value is returned.                                                         *
- *                                                                                             *
- * WARNINGS:   none                                                                            *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   07/03/1996 JLB : Created.                                                                 *
- *=============================================================================================*/
+/// <summary>
+/// Fetches a theater from the INI database by the name the rules declared it under.
+/// A name no theater answers to is reported and treated as absent, because the result
+/// goes on to name the archives the whole load is read from.
+/// </summary>
+/// <returns>Returns with the theater found, or the default when the entry is missing or
+/// names no declared theater.</returns>
 TheaterType CCINIClass::Get_TheaterType(char const * section, char const * entry, TheaterType defvalue) const
 {
 	char buffer[128];
 
 	if (Get_String(section, entry, "", buffer, sizeof(buffer))) {
-		return(Theater_From_Name(buffer));
+		TheaterType theater = TheaterClass::From_Name(buffer);
+		if (theater != THEATER_NONE) {
+			return(theater);
+		}
+		DebugString("No theater is declared as \"%s\"; using %s instead.\n",
+			buffer, TheaterClass::As_Reference(defvalue).Name());
 	}
 	return(defvalue);
 }
@@ -1427,7 +1420,7 @@ TheaterType CCINIClass::Get_TheaterType(char const * section, char const * entry
  *=============================================================================================*/
 bool CCINIClass::Put_TheaterType(char const * section, char const * entry, TheaterType value)
 {
-	return(Put_String(section, entry, Theaters[value].Name));
+	return(Put_String(section, entry, TheaterClass::As_Reference(value).Name()));
 }
 
 

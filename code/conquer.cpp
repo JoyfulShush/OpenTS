@@ -795,36 +795,6 @@ char const * Name_From_Source(SourceType source)
 
 
 /***********************************************************************************************
- * Theater_From_Name -- Converts ASCII name into a theater number.                             *
- *                                                                                             *
- *    This routine converts an ASCII representation of a theater and converts it into a        *
- *    matching theater number. If no match was found, then THEATER_NONE is returned.           *
- *                                                                                             *
- * INPUT:   name  -- Pointer to ASCII name to convert.                                         *
- *                                                                                             *
- * OUTPUT:  Returns with the name converted into a theater number.                             *
- *                                                                                             *
- * WARNINGS:   none                                                                            *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   10/01/1994 JLB : Created.                                                                 *
- *=============================================================================================*/
-TheaterType Theater_From_Name(char const * name)
-{
-	TheaterType	index;
-
-	//if (name) {
-		for (index = THEATER_FIRST; index < THEATER_COUNT; index++) {
-			if (stricmp(name, Theaters[index].Name) == 0) {
-				return(index);
-			}
-		}
-	//}
-	return(THEATER_NONE);
-}
-
-
-/***********************************************************************************************
  * KN_To_Facing -- Converts a keyboard input number into a facing value.                       *
  *                                                                                             *
  *    This routine determine which compass direction is represented by the keyboard value      *

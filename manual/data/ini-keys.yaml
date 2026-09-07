@@ -10209,6 +10209,24 @@ High:
       source: code/overtype.cpp
       guard: null
     level: OverlayTypeClass
+HighRadarBrightness:
+  key: HighRadarBrightness
+  scopes:
+  - applies_to: &id024
+    - Theater
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: floating point
+    status: generated
+    _provenance:
+      default_candidate: '1.6'
+      declared_in: TheaterClass
+      member: HighRadarBrightness
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 HoldsWhat:
   key: HoldsWhat
   scopes:
@@ -10921,6 +10939,23 @@ Image:
       source: code/builtype.cpp
       guard: null
     level: BuildingTypeClass
+ImageLetter:
+  key: ImageLetter
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: null
+      declared_in: TheaterClass
+      member: letter
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 Immune:
   key: Immune
   scopes:
@@ -11834,6 +11869,23 @@ IsAnimatedTiberium:
       source: code/animtype.cpp
       guard: null
     level: AnimTypeClass
+IsArctic:
+  key: IsArctic
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'no'
+      declared_in: TheaterClass
+      member: IsArctic
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 IsBaseDefense:
   key: IsBaseDefense
   scopes:
@@ -11964,6 +12016,23 @@ IsFlammable:
       source: code/terrtype.cpp
       guard: null
     level: TerrainTypeClass
+IsIceGrowthEnabled:
+  key: IsIceGrowthEnabled
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: boolean
+    status: generated
+    _provenance:
+      default_candidate: 'no'
+      declared_in: TheaterClass
+      member: IsIceGrowth
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 IsJuggernaut:
   key: IsJuggernaut
   scopes:
@@ -12399,6 +12468,23 @@ IsWebImmune:
       source: code/infatype.cpp
       guard: null
     level: InfantryTypeClass
+IsoRoot:
+  key: IsoRoot
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: null
+      declared_in: TheaterClass
+      member: IsoRoot
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 Jellyfish:
   key: Jellyfish
   scopes:
@@ -13151,6 +13237,23 @@ Lose:
       source: code/scenario.cpp
       guard: null
     level: ScenarioClass
+LowRadarBrightness:
+  key: LowRadarBrightness
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: floating point
+    status: generated
+    _provenance:
+      default_candidate: '1.0'
+      declared_in: TheaterClass
+      member: LowRadarBrightness
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 MCVDeploy:
   key: MCVDeploy
   scopes:
@@ -13187,6 +13290,23 @@ MMRampBase:
       source: code/isotype.cpp
       guard: null
     level: IsometricTileTypeClass
+MMSuffix:
+  key: MMSuffix
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: ''
+      declared_in: TheaterClass
+      member: MMSuffix
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 ManualControl:
   key: ManualControl
   scopes:
@@ -14677,7 +14797,7 @@ NewTheater:
     level: ObjectTypeClass
   - applies_to: *id005
     file: art.ini
-    section: &id024
+    section: &id025
       kind: identifier
       source: object-type
     value_type: boolean
@@ -14696,7 +14816,7 @@ NewTheater:
       value_type: boolean
       applies_to: *id005
     - file: art.ini
-      section: *id024
+      section: *id025
       value_type: boolean
       applies_to: *id005
     precedence: accepted under more than one entry heading; the last one the engine reads wins
@@ -18214,6 +18334,23 @@ RollAngle:
       source: code/techtype.cpp
       guard: null
     level: TechnoTypeClass
+Root:
+  key: Root
+  scopes:
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: generated
+    _provenance:
+      default_candidate: null
+      declared_in: TheaterClass
+      member: Root
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 RotCount:
   key: RotCount
   scopes:
@@ -21280,7 +21417,7 @@ Suffix:
       kind: identifier
       source: object-type
     value_type: string
-    status: generated
+    status: needs_review
     _provenance:
       default_candidate: null
       declared_in: HouseTypeClass
@@ -21288,6 +21425,20 @@ Suffix:
       source: code/houstype.cpp
       guard: null
     level: HouseTypeClass
+  - applies_to: *id024
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: string
+    status: needs_review
+    _provenance:
+      default_candidate: ''
+      declared_in: TheaterClass
+      member: Suffix
+      source: code/theater.cpp
+      guard: null
+    level: TheaterClass
 Suicide:
   key: Suicide
   scopes:
@@ -22182,7 +22333,7 @@ Theater:
     level: ObjectTypeClass
   - applies_to: *id005
     file: art.ini
-    section: &id025
+    section: &id026
       kind: identifier
       source: object-type
     value_type: boolean
@@ -22201,7 +22352,7 @@ Theater:
       value_type: boolean
       applies_to: *id005
     - file: art.ini
-      section: *id025
+      section: *id026
       value_type: boolean
       applies_to: *id005
     precedence: accepted under more than one entry heading; the last one the engine reads wins

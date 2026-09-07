@@ -115,6 +115,7 @@ class RulesClass
 		bool Do_VehicleTypes(CCINIClass const & ini);
 		bool Do_AircraftTypes(CCINIClass const & ini);
 		bool Do_Sides(CCINIClass const & ini);
+		bool Do_Theaters(CCINIClass const & ini);
 		bool Do_SuperWeaponTypes(CCINIClass const & ini);
 		bool Do_BuildingTypes(CCINIClass const & ini);
 		bool Do_TerrainTypes(CCINIClass const & ini);

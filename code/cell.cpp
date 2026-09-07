@@ -395,9 +395,6 @@ int CellClass::Preview_Cell_Color(unsigned char & unknown, bool terrainonly) con
  *=============================================================================================*/
 void CellClass::Cell_Color(RGBClass & lowcolor, RGBClass & highcolor) const
 {
-	static const float _arr1[] = { 1.0f, 0.8f };
-	static const float _arr2[] = { 1.6f, 1.1f };
-
 	/*
 	 * A terrain object (tree, etc.) overrides the cell color with its own radar color.
 	 */
@@ -498,13 +495,15 @@ void CellClass::Cell_Color(RGBClass & lowcolor, RGBClass & highcolor) const
 		RGBClass lowest(record->LowColor.Red, record->LowColor.Green, record->LowColor.Blue);
 		RGBClass highest(record->HighColor.Red, record->HighColor.Green, record->HighColor.Blue);
 
-		lowest = RGBClass().Set(lowest, _arr1[Scen->Theater]);
-		highest = RGBClass().Set(highest, _arr1[Scen->Theater]);
+		TheaterClass const & theater = TheaterClass::As_Reference(Scen->Theater);
+
+		lowest = RGBClass().Set(lowest, theater.LowRadarBrightness);
+		highest = RGBClass().Set(highest, theater.LowRadarBrightness);
 
 		RGBClass lowres;
 		RGBClass hires;
-		lowres.Set(lowest, _arr2[Scen->Theater]);
-		hires.Set(highest, _arr2[Scen->Theater]);
+		lowres.Set(lowest, theater.HighRadarBrightness);
+		hires.Set(highest, theater.HighRadarBrightness);
 
 		lowcolor = RGBClass().Lerp(lowest, lowres, (double)Height / 12.0);
 		highcolor = RGBClass().Lerp(highest, hires, (double)Height / 12.0);
@@ -4534,9 +4533,7 @@ void CellClass::Recalc_Passability(void)
 				break;
 
 			case RTTI_TERRAIN:
-				if ((Scen->Theater == THEATER_TEMPERATE && ((TerrainClass *)occupier)->Class->TemperateOccupationBits != 7) ||
-					(Scen->Theater == THEATER_SNOW && ((TerrainClass *)occupier)->Class->SnowOccupationBits != 7)) {
-
+				if (((TerrainClass *)occupier)->Occupation_Bits() != 7) {
 					Passability = PASSABLE_PARTIALLY_BLOCKED;
 					return;
 				}

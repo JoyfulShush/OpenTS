@@ -1430,6 +1430,29 @@ bool RulesClass::Do_AircraftTypes(CCINIClass const & ini)
 
 
 /// <summary>
+/// Creates the theaters declared in the control file, in the order they are listed.
+/// A theater's position in that list is the number every map, save and sync checksum
+/// carries, so a list is read once at startup and never from a map's own rules.
+/// </summary>
+/// <returns>bool; Were any theaters declared?</returns>
+bool RulesClass::Do_Theaters(CCINIClass const & ini)
+{
+	static char const * const THEATERS = "Theaters";
+	char buffer[32];
+	int declared = 0;
+	int count = ini.Entry_Count(THEATERS);
+	for (int i = 0; i < count; i++) {
+		if (ini.Get_String(THEATERS, ini.Get_Entry(THEATERS, i), "", buffer, sizeof(buffer))) {
+			if (TheaterClass::Find_Or_Make(buffer) != NULL) {
+				declared++;
+			}
+		}
+	}
+	return(declared > 0);
+}
+
+
+/// <summary>
 /// Creates the sides declared in the control file and populates them.
 /// A side is the umbrella a group of houses fights under -- GDI and Nod being the obvious
 /// pair. Each entry names a side and lists the houses that belong to it, and every house

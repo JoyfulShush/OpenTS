@@ -647,6 +647,8 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 	int j;
 	int k;
 
+	TheaterClass const & data = TheaterClass::As_Reference(theater);
+
 	CCINIClass ini;
 	IsometricTileTypeClass * tile = NULL;
 	CDTimerClass<SystemTimerClass> callback_timer;
@@ -676,13 +678,14 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 		}
 	}
 
-	char slopzname[32];
-	sprintf(slopzname, "SLOP01Z.%s", Theaters[theater].Suffix);
+	char slopzname[_MAX_PATH];
+	sprintf(slopzname, "SLOP01Z.%s", data.Suffix.c_str());
 	CCFileClass slopz(slopzname);
 
 	SlopeZShapes[0] = (ShapeSet *)new char[slopz.Size()];
 	slopz.Read(SlopeZShapes[0], slopz.Size());
 
+	// Index five is the digit of the "SLOP01Z" literal above.
 	slopzname[5] = '2';
 	slopz.Set_Name(slopzname);
 	SlopeZShapes[1] = (ShapeSet *)new char[slopz.Size()];
@@ -702,8 +705,8 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 		delete IsometricTileTypes[0];
 	}
 
-	char palname[32];
-	sprintf(palname, "ISO%s.PAL", Theaters[theater].Suffix);
+	char palname[_MAX_PATH];
+	sprintf(palname, "ISO%s.PAL", data.Suffix.c_str());
 	CCFileClass palette(palname);
 	if (palette.Is_Available()) {
 		palette.Read(&IsoTilePalette, sizeof(IsoTilePalette));
@@ -715,8 +718,8 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 	}
 	IsometricTileTypeClass::Init_Drawers();
 
-	char ininame[20];
-	sprintf(ininame, "%s.INI", Theaters[theater].Root);
+	char ininame[_MAX_PATH];
+	sprintf(ininame, "%s.INI", data.Root.c_str());
 	CCFileClass inifile(ininame);
 	ini.Load(inifile, false, false);
 
@@ -1049,7 +1052,7 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 				}
 
 				char file_path[512];
-				_makepath(file_path, NULL, NULL, tile_name, Theaters[theater].Suffix);
+				_makepath(file_path, NULL, NULL, tile_name, data.Suffix);
 
 				mixfile_set = NULL;
 				found_image = false;
@@ -1066,12 +1069,8 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 						found_image = true;
 					}
 				}
-				if (!found_image && _NonMarbleMadness) {
-					if (theater == THEATER_TEMPERATE) {
-						_makepath(file_path, NULL, NULL, tile_name, ".MMT");
-					} else {
-						_makepath(file_path, NULL, NULL, tile_name, ".MMS");
-					}
+				if (!found_image && _NonMarbleMadness && !data.MMSuffix.empty()) {
+					_makepath(file_path, NULL, NULL, tile_name, data.MMSuffix);
 					if (from_ccfile) {
 						CCFileClass file(file_path);
 						found_image = file.Is_Available();
@@ -1179,7 +1178,7 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 	}
 
 	/// Remap ice tiles to water
-	if (theater != THEATER_TEMPERATE && theater == THEATER_SNOW) {
+	if (data.IsIceGrowth) {
 		if (Ice1Set != ISOTILE_INVALID) {
 			for (k = ICE_EDGE; k < ICE1_COUNT; k++) {
 				IsoTileRecord * record = ((IsoTileSet *)IsometricTileTypes[Ice1Set + k]->Get_Image_Data())->Tiles[0];

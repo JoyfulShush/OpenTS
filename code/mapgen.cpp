@@ -4822,7 +4822,7 @@ void MapGeneratorClass::Generate_Random_Map(bool full_init, HWND dialog)
 	Generate_Lights();
 
 	DebugString("RMG: Adding veinholes\n");
-	if (Scen->Theater == THEATER_TEMPERATE) {
+	if (!TheaterClass::As_Reference(Scen->Theater).IsArctic) {
 		Generate_Veinholes();
 	}
 
@@ -5038,20 +5038,19 @@ void MapGeneratorClass::Init_Map(bool full_init)
 
 	double tod = _tod_values[SeedData.Time];
 
-	TheaterType _biome_to_theater[BIOME_COUNT] = {
-		THEATER_SNOW,
-		THEATER_SNOW,
-		THEATER_TEMPERATE,
-		THEATER_TEMPERATE,
-		THEATER_TEMPERATE,
+	// The generator lays out only the two theaters Tiberian Sun shipped, so it names them
+	// rather than numbering them.
+	auto _biome_to_theater = [&_theaters](int index) {
+		TheaterType theater = TheaterClass::From_Name(_theaters[index]);
+		if (theater == THEATER_NONE) {
+			DebugString("RMG: No theater is declared as \"%s\"; generating in %s.\n",
+				_theaters[index], TheaterClass::As_Reference(THEATER_FIRST).Name());
+			return(THEATER_FIRST);
+		}
+		return(theater);
 	};
 
-	double _tod_scales[2] = {
-		1.0,
-		0.75
-	};
-
-	double scale = _tod_scales[_biome_to_theater[biome]];
+	double scale = TheaterClass::As_Reference(_biome_to_theater(biome)).IsArctic ? 0.75 : 1.0;
 
 	/*
 	 * Interpolate the local map dimensions between the minimum and maximum size
@@ -5125,10 +5124,10 @@ void MapGeneratorClass::Init_Map(bool full_init)
 
 		bool changed = true;
 		TheaterType last = Scen->Theater;
-		TheaterType theater = _biome_to_theater[SeedData.Biome];
+		TheaterType theater = _biome_to_theater(SeedData.Biome);
 
 		if (MapSeeder != NULL) {
-			last = _biome_to_theater[MapSeeder->Biome];
+			last = _biome_to_theater(MapSeeder->Biome);
 			if (MapSeeder->Width == SeedData.Width && MapSeeder->Height == SeedData.Height && last == theater
 					&& MapSeeder->NumPlayers == SeedData.NumPlayers) {
 				changed = false;

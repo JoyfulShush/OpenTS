@@ -14,6 +14,7 @@ registrations:
   - { section: VehicleTypes, id_from: value, entry_section: "<UnitType ID>" }
   - { section: AircraftTypes, id_from: value, entry_section: "<AircraftType ID>" }
   - { section: Sides, id_from: key, value: "Comma-separated HouseType IDs" }
+  - { section: Theaters, id_from: value, entry_section: "<Theater ID>" }
   - { section: SuperWeaponTypes, id_from: value, entry_section: "<SuperWeaponType ID>" }
   - { section: BuildingTypes, id_from: value, entry_section: "<BuildingType ID>" }
   - { section: TerrainTypes, id_from: value, entry_section: "<TerrainType ID>" }
@@ -38,6 +39,10 @@ The two exceptions read their keys. In `[Sides]` the key is the Side ID and the 
 Registering an ID and defining it are separate passes. Registration creates the type carrying the built-in defaults for its kind, and the section named by the ID is read afterwards, so an ID registered with no section of its own is kept with those defaults rather than dropped.
 
 OpenTS processes the selected `RULE*.INI`, then `LANGRULE.INI`, then `FIRESTRM.INI` when Firestorm is enabled, and finally `LANGFS.INI` when present. [Game data](/using/game-data/) covers what makes Firestorm count as installed.
+
+`[Theaters]` is read on different terms from the rest, because a map names its theater before anything else about it is read and the archives that theater mounts are what the rest of the load comes out of. It is read once as the game starts, from the selected `RULE*.INI` and from `FIRESTRM.INI` whenever that file is installed rather than only when its addon is enabled — a theater's position must not move between one game and the next, because that position is the number maps, saves and the multiplayer checksum all carry. A map's own rules cannot add a theater.
+
+Where no rules file declares the section, the two theaters Tiberian Sun shipped are registered in their original order, which is what every unmodified rules file gets. Where the section is present it is the whole roster, so it may drop `SNOW`, reorder the pair, or replace both — and a roster meaning to keep them has to write them out. Naming `TEMPERATE` or `SNOW` in the list does not create a second copy of it; the theater starts from its original settings and its own section overrides what it names.
 
 ```ini title="rules.ini"
 [InfantryTypes]

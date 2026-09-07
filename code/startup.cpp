@@ -755,6 +755,9 @@ void __cdecl Prog_End(void)
 	}
 	ColorSchemes.Clear();
 
+	// The theaters outlive every scenario, so they are not released with its objects.
+	TheaterClass::Clear();
+
 	Delete_All_Objects();
 
 	while (Movies.Count()) {

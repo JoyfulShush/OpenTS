@@ -2273,7 +2273,7 @@ void UnitClass::Per_Cell_Process(PCPType why)
 		}
 
 		bool broke_ice = false;
-		if (Scen->Theater == THEATER_SNOW) {
+		if (TheaterClass::As_Reference(Scen->Theater).IsIceGrowth) {
 			Map.DirtyIceCells.Clear();
 			if (Class->Weight >= Rule->IceBreakingWeight) {
 				broke_ice = Map.Break_Ice(&Map[(Coord const &)PositionCoord], this);

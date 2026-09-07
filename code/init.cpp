@@ -507,6 +507,9 @@ int Init_Game(int , char * [])
 		return(-1);
 	}
 
+	// A map names its theater before anything else about it is read.
+	Prepare_Theater_Roster();
+
 	// A score's Side= names a side the rules declare, so the roster is built before the scores are read.
 	Prepare_Side_Roster();
 
@@ -662,6 +665,37 @@ void Init_Campaigns(void)
 			Read_Battle_INI(*ini);
 			delete ini;
 		}
+	}
+}
+
+
+/// <summary>
+/// Reads the theaters the rules declare, once, before anything can mount one.
+/// A theater list replaces the two theaters Tiberian Sun hard-coded rather than adding to
+/// them, so a rules file may drop or reorder them; a list naming none leaves those two.
+/// Firestorm's theaters are read whenever its rules are installed, not only when its addon
+/// is enabled, because a theater's position must not move between games.
+/// </summary>
+void Prepare_Theater_Roster(void)
+{
+	bool declared = Rule->Do_Theaters(*RuleINI);
+
+	if (Addon_Installed(ADDON_FIRESTORM)) {
+		declared |= Rule->Do_Theaters(FSRuleINI);
+	}
+
+	if (!declared) {
+		TheaterClass::One_Time();
+	}
+
+	for (int index = 0; index < Theaters.Count(); index++) {
+		Theaters[index]->Read_INI(*RuleINI);
+
+		if (Addon_Installed(ADDON_FIRESTORM)) {
+			Theaters[index]->Read_INI(FSRuleINI);
+		}
+
+		DebugString("Theater %d: %s\n", index, Theaters[index]->Name());
 	}
 }
 
@@ -2003,11 +2037,6 @@ static void Init_Color_Remaps(void)
  *=============================================================================================*/
 static void Init_Heaps(void)
 {
-	/*
-	**	Allocate the theater buffer block.
-	*/
-//	TheaterBuffer = new Buffer(THEATER_BUFFER_SIZE);
-//	assert(TheaterBuffer != NULL);
 }
 
 
@@ -6173,18 +6202,20 @@ void Delete_All_Objects(void)
  *=============================================================================================*/
 void Init_Theater(TheaterType theater)
 {
-	char			fullname[16];
-	char			shortname[16];
-	char			isofullname[16];
+	TheaterClass const & data = TheaterClass::As_Reference(theater);
+
+	char			fullname[_MAX_PATH];
+	char			shortname[_MAX_PATH];
+	char			isofullname[_MAX_PATH];
 
 	/*
 	**	Unload old mixfiles, and cache the new ones
 	*/
-	wsprintf(fullname, "%s.MIX", Theaters[theater].Root);
-	wsprintf(isofullname, "%s.MIX", Theaters[theater].IsoRoot);
-	wsprintf(shortname, "%s.MIX", Theaters[theater].Suffix);
+	wsprintf(fullname, "%s.MIX", data.Root.c_str());
+	wsprintf(isofullname, "%s.MIX", data.IsoRoot.c_str());
+	wsprintf(shortname, "%s.MIX", data.Suffix.c_str());
 
-	DebugString("Init theater %s\n", Theaters[theater].Name);
+	DebugString("Init theater %s\n", data.Name());
 
 	/*
 	**	Save the new theater value
@@ -6218,7 +6249,7 @@ void Init_Theater(TheaterType theater)
 		**	Load the custom palette associated with this theater.
 		**	The fading palettes will have to be generated as well.
 		*/
-		wsprintf(fullname, "%s.PAL", Theaters[theater].Root);
+		wsprintf(fullname, "%s.PAL", data.Root.c_str());
 
 		unsigned char * ptr = (unsigned char *)MFCD::Retrieve(fullname);
 
@@ -6239,21 +6270,10 @@ void Init_Theater(TheaterType theater)
 		OriginalPalette = GamePalette;
 
 		PaletteClass * unitpal = NULL;
-		char const * palname = NULL;
 
-		bool valid = false;
-		switch (theater) {
-			case THEATER_TEMPERATE:
-				valid = true;
-				palname ="UNITTEM.PAL";
-				break;
-			case THEATER_SNOW:
-				valid = true;
-				palname = "UNITSNO.PAL";
-				break;
-		};
-
-		if (valid) {
+		if (!data.Suffix.empty()) {
+			char palname[_MAX_PATH];
+			wsprintf(palname, "UNIT%s.PAL", data.Suffix.c_str());
 			unitpal = (PaletteClass *)MFCD::Retrieve(palname);
 		}
 

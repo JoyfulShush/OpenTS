@@ -607,7 +607,7 @@ void BuildingTypeClass::Init(TheaterType theater)
 		if (classptr->IsTheater) {
 
 			if (!classptr->IsDemandLoad) {
-				_makepath(fullname, NULL, NULL, classptr->Graphic_Name(), Theaters[theater].Suffix);
+				_makepath(fullname, NULL, NULL, classptr->Graphic_Name(), TheaterClass::As_Reference(theater).Suffix);
 				classptr->ImageData = MFCD::Retrieve(fullname);
 			} else {
 				if (classptr->ImageData != NULL) {
@@ -620,7 +620,7 @@ void BuildingTypeClass::Init(TheaterType theater)
 			**	data at this time as well.
 			*/
 			if (!classptr->IsDemandLoadBuildup) {
-				_makepath(fullname, NULL, NULL, classptr->BuildupFilename, Theaters[theater].Suffix);
+				_makepath(fullname, NULL, NULL, classptr->BuildupFilename, TheaterClass::As_Reference(theater).Suffix);
 				classptr->BuildupData = MFCD::Retrieve(fullname);
 			} else {
 				if (classptr->BuildupData != NULL) {
@@ -1042,7 +1042,7 @@ void BuildingTypeClass::Fetch_Building_Normal_Image(TheaterType theater)
 	if (!IsTheater || theater == THEATER_NONE) {
 		strcpy(ext, ".SHP");
 	} else {
-		strcpy(ext, Theaters[theater].Suffix);
+		strcpy(ext, TheaterClass::As_Reference(theater).Suffix);
 	}
 
 	if (strlen(buffer)) {

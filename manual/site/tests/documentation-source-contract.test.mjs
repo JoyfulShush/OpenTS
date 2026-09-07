@@ -881,3 +881,77 @@ test('An isometric tile type keeps its whole artwork path', () => {
 		'the reload opens the whole name',
 	);
 });
+
+test('No engine source names a built-in theater by enumerator', () => {
+	const declared = source('code/theater.hh');
+	assert.doesNotMatch(declared, /THEATER_TEMPERATE|THEATER_SNOW|THEATER_COUNT/, 'the enum names no theater and no count');
+
+	for (const path of ['code/init.cpp', 'code/isotype.cpp', 'code/objtype.cpp', 'code/map.cpp',
+		'code/logic.cpp', 'code/unit.cpp', 'code/cell.cpp', 'code/terrain.cpp',
+		'code/tactical.cpp', 'code/mapgen.cpp', 'code/scenario.cpp', 'code/display.cpp']) {
+		assert.doesNotMatch(source(path), /THEATER_TEMPERATE|THEATER_SNOW|THEATER_COUNT/,
+			`${path} decides nothing by a built-in theater's number`);
+	}
+});
+
+test('The theater roster replaces the built-in pair rather than adding to it', () => {
+	const roster = functionBody(source('code/init.cpp'), 'void Prepare_Theater_Roster(void)');
+
+	assertOrdered(roster, [
+		'Rule->Do_Theaters(*RuleINI)',
+		'Addon_Installed(ADDON_FIRESTORM)',
+		'Rule->Do_Theaters(FSRuleINI)',
+		'if (!declared)',
+		'TheaterClass::One_Time()',
+	], 'the roster is read before the built-in pair is seeded');
+
+	assert.doesNotMatch(roster, /Addon_Enabled/, 'a theater position must not move with the addon');
+});
+
+test('An out of range theater yields a theater that names nothing', () => {
+	const reference = functionBody(
+		source('code/theater.cpp'),
+		'TheaterClass const & TheaterClass::As_Reference(TheaterType theater)',
+	);
+
+	assert.match(reference, /\(unsigned\)theater >= \(unsigned\)Theaters\.Count\(\)/, 'the index is bounded on both sides');
+	assert.match(reference, /return\(_unknown\)/, 'an unusable index yields the empty theater');
+	assert.match(reference, /_unknown\(NULL, false\)/, 'the placeholder stays out of the theater list');
+
+	assert.match(
+		functionBody(source('code/theater.cpp'), 'TheaterClass::TheaterClass(char const * name, bool listed)'),
+		/if \(listed\) \{\s*Theaters\.Add\(this\);/,
+		'only a listed theater joins the list',
+	);
+});
+
+test('A map naming no declared theater falls back rather than indexing', () => {
+	const fetch = functionBody(
+		source('code/ccini.cpp'),
+		'TheaterType CCINIClass::Get_TheaterType(char const * section, char const * entry, TheaterType defvalue) const',
+	);
+
+	assertOrdered(fetch, [
+		'TheaterClass::From_Name(buffer)',
+		'if (theater != THEATER_NONE)',
+		'DebugString',
+		'return(defvalue)',
+	], 'an unmatched name is reported and replaced by the default');
+});
+
+test('New theater artwork is renamed by image letter, not by a prefix list', () => {
+	const objtype = source('code/objtype.cpp');
+	const rename = functionBody(
+		objtype,
+		'void ObjectTypeClass::Theater_Naming_Convention(char * name, TheaterType theater) const',
+	);
+
+	assert.match(rename, /TheaterClass::As_Reference\(theater\)\.ImageLetter/, 'the letter comes from the theater');
+	assert.match(rename, /Theaters\[index\]->ImageLetter/, 'a name qualifies by carrying some theater letter');
+	assert.doesNotMatch(objtype, /"ga"|"na"|"gt"|"nt"|"ca"|"ct"/, 'no fixed prefix list remains');
+	assert.match(
+		functionBody(objtype, 'void ObjectTypeClass::Fetch_Normal_Image(void)'),
+		/Theater_Naming_Convention\(fullname, Scen->Theater\)/,
+		'the shape fetch calls the convention rather than repeating it',
+	);
+});

@@ -43,6 +43,7 @@ void Title_Screen_Restore(bool force=false);
 
 void Init_Campaigns(void);
 
+void Prepare_Theater_Roster(void);
 void Prepare_Side_Roster(void);
 
 void Delete_All_Objects(void);

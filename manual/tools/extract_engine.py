@@ -147,6 +147,7 @@ CONCRETE_TYPES = {
     "TiberiumClass": "Tiberium",
     "CampaignClass": "Campaign",
     "SideClass": "Side",
+    "TheaterClass": "Theater",
 }
 
 # Which file a given concrete type is read from, when the accessor receiver is
