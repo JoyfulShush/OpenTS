@@ -52,8 +52,6 @@
 
 #define WS_MAX_STATIC_BUFFERS	128
 
-#define PLANET_WESTWOOD_HANDLE_MAX 20	// Max length of a WChat handle
-
 /*
 **	Enum to identify the protocols supported by the Winsock interface.
 */
