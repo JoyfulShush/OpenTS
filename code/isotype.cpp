@@ -259,7 +259,6 @@ IsometricTileTypeClass::IsometricTileTypeClass(IsometricTileType type, int unkno
 	Unused2(unknown2),
 	NumTileTypesInSet(1),
 	IsFileLoaded(false),
-	//Filename(),
 	IsAllowBurrowing(true),
 	IsAllowTiberium(false),
 	UseCount(0)
@@ -270,8 +269,6 @@ IsometricTileTypeClass::IsometricTileTypeClass(IsometricTileType type, int unkno
 	}
 
 	GivenName = ininame;
-
-	Filename[0] = '\0';
 
 	IsStealthy = true;
 	IsSelectable = false;
@@ -1061,7 +1058,7 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 					CCFileClass file(file_path);
 					found_image = file.Is_Available();
 					if (found_image && tile_count == 0) {
-						strncpy(tile->Filename, file_path, sizeof(tile->Filename)-2);
+						tile->Filename = file_path;
 					}
 				} else {
 					mixfile_set = (IsoTileSet *)MFCD::Retrieve(file_path);
@@ -1079,7 +1076,7 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 						CCFileClass file(file_path);
 						found_image = file.Is_Available();
 						if (found_image && tile_count == 0) {
-							strncpy(tile->Filename, file_path, sizeof(tile->Filename)-2);
+							tile->Filename = file_path;
 						}
 					} else {
 						mixfile_set = (IsoTileSet *)MFCD::Retrieve(file_path);
@@ -1105,7 +1102,7 @@ void IsometricTileTypeClass::Read_Control_File(TheaterType theater, bool from_cc
 					tile->IsRequiredForRMG = _RequiredForRMG;
 					if (from_ccfile) {
 						tile->IsFileLoaded = true;
-						strncpy(tile->Filename, file_path, sizeof(tile->Filename)-2);
+						tile->Filename = file_path;
 					}
 					if (is_shadow_caster && shadow_tiles) {
 						tile->IsShadowCaster = is_shadow_caster;
@@ -1269,7 +1266,7 @@ void IsometricTileTypeClass::Load_Tiles(bool skipiteration, bool isrand)
 
 		ptr = IsometricTileTypes[i];
 		while (ptr != NULL) {
-			if (ptr->IsFileLoaded && strlen(ptr->Filename)) {
+			if (ptr->IsFileLoaded && !ptr->Filename.empty()) {
 				if (!skipiteration && ptr->UseCount == 0 && (!isrand || !ptr->IsRequiredForRMG)) {
 					if (ptr->ImageData != NULL) {
 						delete [] (unsigned char *)ptr->ImageData;
@@ -1299,7 +1296,7 @@ void IsometricTileTypeClass::Load_Tiles(bool skipiteration, bool isrand)
 /// <returns>Returns with the number of bytes the artwork occupies.</returns>
 int IsometricTileTypeClass::Load_Tile_Data(void)
 {
-	CCFileClass file(Filename);
+	CCFileClass file(Filename.c_str());
 	int size = file.Size();
 	if (ImageData != NULL) {
 		delete [] (unsigned char *)ImageData;

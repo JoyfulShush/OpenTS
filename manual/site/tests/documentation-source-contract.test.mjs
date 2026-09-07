@@ -868,3 +868,16 @@ test('The turret strip is derived from eight walk blocks whatever the hull is cu
 	assert.match(unit, /Shape_Facing_Index\(SecondaryFacing\.Current\(\), Class->TurretFacings\)/, 'the turret uses its own count');
 	assert.match(unit, /Shape_Facing_Index\(PrimaryFacing\.Current\(\), Class->Facings\)/, 'the hull uses its own count');
 });
+
+test('An isometric tile type keeps its whole artwork path', () => {
+	const isotype = source('code/isotype.cpp');
+
+	assert.match(source('code/isotype.h'), /std::string Filename;/, 'the path is no longer a fixed record');
+	assert.doesNotMatch(isotype, /strncpy\(tile->Filename/, 'no copy truncates the composed path');
+	assert.match(isotype, /tile->Filename = file_path;/, 'the composed path is kept whole');
+	assert.match(
+		functionBody(isotype, 'int IsometricTileTypeClass::Load_Tile_Data(void)'),
+		/CCFileClass file\(Filename\.c_str\(\)\)/,
+		'the reload opens the whole name',
+	);
+});
