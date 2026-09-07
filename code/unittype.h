@@ -122,6 +122,13 @@ class UnitTypeClass : public TechnoTypeClass
 		bool IsTooBigToFitUnderBridge;
 
 		/*
+		 * If a carryall may pick this vehicle up, then this flag will be true. It governs the
+		 * lift alone, so a vehicle refused here is left to drive itself and is otherwise
+		 * unrestricted.
+		 */
+		bool IsTotable;
+
+		/*
 		 * If this type is the small visceroid, then this flag will be true. A small
 		 * visceroid crawls where it pleases, walks through others of its own kind, and
 		 * merges with the first one it reaches to become the large visceroid.

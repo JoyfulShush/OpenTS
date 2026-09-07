@@ -115,6 +115,7 @@ UnitTypeClass::UnitTypeClass(char const * ininame) :
 	IsDeployToFire(false),
 	IsUseTurretShadow(false),
 	IsTooBigToFitUnderBridge(false),
+	IsTotable(true),
 	IsSmallVisceroid(false),
 	IsLargeVisceroid(false),
 	IsCarriesCrate(false),
@@ -381,6 +382,7 @@ bool UnitTypeClass::Read_INI(CCINIClass const & ini)
 		IsCarriesCrate = ini.Get_Bool(Name(), "CarriesCrate", IsCarriesCrate);
 		IsLockTurret = !IsTurretEquipped;
 		IsTooBigToFitUnderBridge = ini.Get_Bool(Name(), "TooBigToFitUnderBridge", IsTooBigToFitUnderBridge);
+		IsTotable = ini.Get_Bool(Name(), "Totable", IsTotable);
 
 		HalfDamageSmokeLocation = ini.Get_Point(Name(), "HalfDamageSmokeLocation", HalfDamageSmokeLocation);
 
@@ -523,6 +525,7 @@ void UnitTypeClass::Compute_CRC(CRCEngine & crc) const
 	crc(IsNoFireWhileMoving);
 	crc(IsTilter);
 	crc(IsUseTurretShadow);
+	crc(IsTotable);
 }
 
 
@@ -568,6 +571,7 @@ void UnitTypeClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(IsTilter);
 	stream.Serialize(IsUseTurretShadow);
 	stream.Serialize(IsTooBigToFitUnderBridge);
+	stream.Serialize(IsTotable);
 	stream.Serialize(IsSmallVisceroid);
 	stream.Serialize(IsLargeVisceroid);
 	stream.Serialize(IsCarriesCrate);
