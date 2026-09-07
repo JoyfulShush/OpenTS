@@ -33,27 +33,18 @@
 
 #include "_wsproto.h"
 #include "ipxaddr.h"
+#include "netsocket.h"
 #include "vector.h"
 
-/*
-**	Include standard Winsock 1.0 header file.
-*/
-#include <winsock.h>
+#include <memory>
 
 #ifndef fw_assert
 #define fw_assert assert
 #endif
 
-#ifndef LAST_ERROR
-#define LAST_ERROR WSAGetLastError()
-#endif
-
 /*
 **	Misc defines
 */
-#define WINSOCK_MINOR_VER		1   // Version of Winsock
-#define WINSOCK_MAJOR_VER		1   //    that we require
-
 #define WS_RECEIVE_BUFFER_LEN	2048		// Length of our temporary receive buffer.
 #define SOCKET_BUFFER_SIZE		1024*128	// Length of winsocks internal buffer.
 
@@ -128,7 +119,9 @@ class WinsockInterfaceClass {
 			return(false);
 		};
 
-		virtual bool Get_Host_Name(char *name, int len);
+		// Replaces the socket this transport sends through. A test hands in a
+		// null socket here; anything already open is closed first.
+		void Set_Socket(std::unique_ptr<SocketClass> socket);
 
 		virtual int Get_Num_Local_Addresses(void) { return(0); }
 		virtual unsigned char *Get_Local_Address(int index) { return(NULL); }
@@ -214,7 +207,7 @@ class WinsockInterfaceClass {
 		/*
 		**	Socket that communications will take place over.
 		*/
-		SOCKET				Socket;
+		std::unique_ptr<SocketClass>	Socket;
 
 		// Whether Service may poll the socket.
 		bool				Listening;

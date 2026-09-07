@@ -89,13 +89,11 @@ class UDPInterfaceClass : public WinsockInterfaceClass {
 
 		void Register_Local_Addresses();
 
-		// Receive_From answers this for a datagram that was not for this client, which
-		// a caller draining the socket passes over where SOCKET_ERROR stops it.
-		static constexpr int RECEIVE_IGNORED = -2;
-
-		// Wrappers around sendto/recvfrom that add and strip the tunnel routing header.
-		int Send_To(const char *buffer, int buffer_len, sockaddr_in *destination);
-		int Receive_From(char *buffer, int buffer_len, sockaddr_in *source);
+		// Wrappers around the socket that add and strip the tunnel routing header. A
+		// receive that answers NONE with a length of zero delivered nothing this client
+		// should see, which a caller draining the socket passes over.
+		TransferResult Send_To(void const * buffer, int length, IPXAddressClass const & to);
+		TransferResult Receive_From(void * buffer, int length, IPXAddressClass & from);
 
 		/*
 		**	Addresses to send to when broadcasting a packet.

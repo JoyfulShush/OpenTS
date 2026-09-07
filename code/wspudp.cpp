@@ -44,13 +44,11 @@
 #include "wspudp.h"
 
 #include "dbgprint.h"
-#include "misc.h"
 #include "netadmit.h"
 #include "vector.h"
 
 #include <cstdio>
 #include <cstring>
-#include <iphlpapi.h>
 
 
 extern int WestwoodOnline_PortNumber;
@@ -134,79 +132,80 @@ void UDPInterfaceClass::Configure_Tunnel(unsigned short local_id, unsigned long 
 
 
 /// <summary>
-/// Hands a datagram to Winsock, routing it through the tunnel server when one is in use.
+/// Hands a datagram to the socket, routing it through the tunnel server when one is
+/// in use.
 /// </summary>
-/// <param name="destination">Where the packet is bound. In tunnel mode the port carries
-/// the recipient's tunnel ID rather than a real port.</param>
-/// <returns>Whatever sendto returned, counting only the payload. A SOCKET_ERROR always
-/// sets LAST_ERROR, including for a packet this routine rejects itself.</returns>
-int UDPInterfaceClass::Send_To(const char *buffer, int buffer_len, sockaddr_in *destination)
+/// <param name="to">Where the packet is bound. In tunnel mode the port carries the
+/// recipient's tunnel ID rather than a real port.</param>
+/// <returns>The socket's answer, counting only the payload.</returns>
+TransferResult UDPInterfaceClass::Send_To(void const * buffer, int length, IPXAddressClass const & to)
 {
+	if (Socket == nullptr) return(TransferResult{SocketError::OTHER, 0});
+
 	if (TunnelPort == 0) {
-		return(sendto(Socket, buffer, buffer_len, 0, reinterpret_cast<const sockaddr *>(destination), sizeof(*destination)));
+		return(Socket->Send_To(buffer, length, to));
 	}
 
 	// The tunnel server routes on the header alone, so it has to lead the datagram,
 	// outside the packet's own framing.
 	char tunnelled[TUNNEL_HEADER_SIZE + WS_RECEIVE_BUFFER_LEN];
-	if (buffer_len > (int)sizeof(tunnelled) - TUNNEL_HEADER_SIZE) {
-		WSASetLastError(WSAEMSGSIZE);
-		return(SOCKET_ERROR);
+	if (length > (int)sizeof(tunnelled) - TUNNEL_HEADER_SIZE) {
+		return(TransferResult{SocketError::MESSAGE_SIZE, 0});
 	}
 
-	unsigned short header[] = { TunnelID, destination->sin_port };
+	unsigned short header[] = { TunnelID, to.Get_Port() };
 	std::memcpy(tunnelled, header, sizeof(header));
-	std::memcpy(tunnelled + TUNNEL_HEADER_SIZE, buffer, buffer_len);
+	std::memcpy(tunnelled + TUNNEL_HEADER_SIZE, buffer, length);
 
-	sockaddr_in server = {};
-	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = TunnelIP;
-	server.sin_port = TunnelPort;
+	IPXAddressClass const server(TunnelIP, TunnelPort);
+	TransferResult result = Socket->Send_To(tunnelled, length + TUNNEL_HEADER_SIZE, server);
 
-	int rc = sendto(Socket, tunnelled, buffer_len + TUNNEL_HEADER_SIZE, 0, reinterpret_cast<const sockaddr *>(&server), sizeof(server));
+	if (result.Error == SocketError::NONE && result.Length > 0) {
+		result.Length -= TUNNEL_HEADER_SIZE;
+	}
 
-	return(rc > 0 ? rc - TUNNEL_HEADER_SIZE : rc);
+	return(result);
 }
 
 
 /// <summary>
-/// Takes a datagram from Winsock, unwrapping it when a tunnel is in use. A tunnelled
+/// Takes a datagram from the socket, unwrapping it when a tunnel is in use. A tunnelled
 /// packet reports its sender by tunnel ID, since the server is the only endpoint the
 /// socket ever sees.
 /// </summary>
-/// <returns>The number of payload bytes received, RECEIVE_IGNORED for a datagram that
-/// was not for this client, or SOCKET_ERROR when the socket delivered nothing.</returns>
-int UDPInterfaceClass::Receive_From(char *buffer, int buffer_len, sockaddr_in *source)
+/// <returns>The payload received. A length of zero with no error means the datagram was
+/// not for this client, which leaves the drain free to try the next one.</returns>
+TransferResult UDPInterfaceClass::Receive_From(void * buffer, int length, IPXAddressClass & from)
 {
-	int address_len = sizeof(*source);
+	if (Socket == nullptr) return(TransferResult{SocketError::OTHER, 0});
 
 	if (TunnelPort == 0) {
-		return(recvfrom(Socket, buffer, buffer_len, 0, reinterpret_cast<sockaddr *>(source), &address_len));
+		return(Socket->Receive_From(buffer, length, from));
 	}
 
 	char tunnelled[TUNNEL_HEADER_SIZE + WS_RECEIVE_BUFFER_LEN];
-	int rc = recvfrom(Socket, tunnelled, sizeof(tunnelled), 0, reinterpret_cast<sockaddr *>(source), &address_len);
+	TransferResult const result = Socket->Receive_From(tunnelled, sizeof(tunnelled), from);
 
-	if (rc == SOCKET_ERROR) return(SOCKET_ERROR);
+	if (result.Error != SocketError::NONE) return(result);
 
-	unsigned short header[2];
-	if (rc < (int)sizeof(header)) return(RECEIVE_IGNORED);
-	std::memcpy(header, tunnelled, sizeof(header));
+	int rc = result.Length;
 
 	// Anything too short to carry a header, or addressed to somebody else, is not ours.
-	if (rc <= TUNNEL_HEADER_SIZE || header[1] != TunnelID) {
-		return(RECEIVE_IGNORED);
-	}
+	unsigned short header[2];
+	if (rc <= TUNNEL_HEADER_SIZE) return(TransferResult{SocketError::NONE, 0});
+	std::memcpy(header, tunnelled, sizeof(header));
+
+	if (header[1] != TunnelID) return(TransferResult{SocketError::NONE, 0});
 
 	rc -= TUNNEL_HEADER_SIZE;
-	if (rc > buffer_len) return(RECEIVE_IGNORED);
+	if (rc > length) return(TransferResult{SocketError::NONE, 0});
 
 	std::memcpy(buffer, tunnelled + TUNNEL_HEADER_SIZE, rc);
 
-	source->sin_addr.s_addr = 0;
-	source->sin_port = header[0];
+	// The server is the only endpoint we see, so the sender is named by tunnel ID.
+	from.Set_Address(0, header[0]);
 
-	return(rc);
+	return(TransferResult{SocketError::NONE, rc});
 }
 
 
@@ -288,47 +287,27 @@ void UDPInterfaceClass::Set_Broadcast_Address (const IPXAddressClass &address)
  *=============================================================================================*/
 bool UDPInterfaceClass::Open_Socket(void)
 {
-	LINGER ling;
-	struct 	sockaddr_in addr;
-
 	/*
 	**	If Winsock is not initialised then do it now.
 	*/
 	if ( !WinsockInitialised ) {
-		if ( !Init()) return( false );;
+		if ( !Init()) return( false );
 	}
 
 	DebugString("About to open a UDP socket\n");
 
 	/*
-	**	Create our UDP socket
+	**	Create our UDP socket and bind it to our UDP port number
 	*/
-	Socket = socket(AF_INET, SOCK_DGRAM, 0);
-	if (Socket == INVALID_SOCKET) {
-		return(false);
-	}
+	unsigned short const port = LocalPortSet ? LocalPort : (unsigned short) WestwoodOnline_PortNumber;
 
-	/*
-	**	Bind our UDP socket to our UDP port number
-	*/
-	addr.sin_family = AF_INET;
-	addr.sin_port = (unsigned short) htons ( LocalPortSet ? LocalPort : (unsigned short) WestwoodOnline_PortNumber );
-	addr.sin_addr.s_addr = htonl (INADDR_ANY);
-
-	DebugString("About to bind the UDP socket to port %d\n", ntohs(addr.sin_port));
-
-	if ( bind (Socket, (LPSOCKADDR)&addr, sizeof(addr) ) == SOCKET_ERROR) {
-		DebugString("Failed to bind the UDP socket - error code %d\n", LAST_ERROR);
-		Close_Socket ();
+	if (!Socket->Open(port)) {
 		return(false);
 	}
 
 	// Winsock refuses a broadcast on a socket that never asked for one.
 	if ( UseBroadcast ) {
-		int optval = 1;
-		if ( setsockopt ( Socket, SOL_SOCKET, SO_BROADCAST, (char*)&optval, sizeof(optval) ) == SOCKET_ERROR ) {
-			DebugString ("Failed to set UDP socket option SO_BROADCAST - error code %d.\n", LAST_ERROR );
-		}
+		Socket->Set_Broadcast(true);
 	}
 
 	/*
@@ -344,17 +323,11 @@ bool UDPInterfaceClass::Open_Socket(void)
 	/*
 	**	Set options for the UDP socket
 	*/
-	ling.l_onoff = 0;   // linger off
-	ling.l_linger = 0;  // timeout in seconds (ie close now)
-	setsockopt (Socket, SOL_SOCKET, SO_LINGER, (LPSTR)&ling, sizeof(ling));
-
 	BASECLASS::Set_Socket_Options();
 
 	DebugString("UDP Socket init complete\n");
 
 	return(true);
-
-
 }
 
 
@@ -366,82 +339,35 @@ bool UDPInterfaceClass::Open_Socket(void)
 /// reaches every network this machine sits on rather than only the first.
 /// </summary>
 /// <remarks>
-/// The adapter table carries the netmasks that a directed broadcast address is computed from;
-/// gethostbyname, which this routine falls back on, reports addresses without them.
+/// A platform that cannot work out a network's broadcast address reports none for that
+/// entry, which leaves the blind broadcast below as the only way onto the local wire.
 /// </remarks>
 void UDPInterfaceClass::Register_Local_Addresses()
 {
-	unsigned long size = 0;
+	std::vector<InterfaceType> interfaces;
 
-	if (GetAdaptersInfo(nullptr, &size) == ERROR_BUFFER_OVERFLOW) {
+	if (Socket != nullptr && Socket->Local_Interfaces(interfaces)) {
 
-		IP_ADAPTER_INFO *adapters = reinterpret_cast<IP_ADAPTER_INFO *>(new char[size]);
-		bool enumerated = false;
+		for (InterfaceType const & found : interfaces) {
 
-		if (GetAdaptersInfo(adapters, &size) == NO_ERROR) {
+			unsigned char * local = new unsigned char[4];
+			*reinterpret_cast<uint32_t *>(local) = found.Address;
+			LocalAddresses.Add(local);
 
-			for (IP_ADAPTER_INFO *adapter = adapters; adapter != nullptr; adapter = adapter->Next) {
-				for (IP_ADDR_STRING *entry = &adapter->IpAddressList; entry != nullptr; entry = entry->Next) {
+			if (!UseBroadcast || found.Broadcast == 0) continue;
 
-					unsigned long address = inet_addr(entry->IpAddress.String);
-					if (address == INADDR_NONE || address == 0) continue;
+			// A port of zero leaves the send path to use the port this socket was given.
+			IPXAddressClass * broadcast = new IPXAddressClass(found.Broadcast, 0);
+			BroadcastAddresses.Add(broadcast);
 
-					DebugString("Found local address: %s\n", entry->IpAddress.String);
-
-					unsigned char *local = new unsigned char[4];
-					*reinterpret_cast<unsigned long *>(local) = address;
-					LocalAddresses.Add(local);
-					enumerated = true;
-
-					if (!UseBroadcast) continue;
-
-					unsigned long mask = inet_addr(entry->IpMask.String);
-					if (mask == INADDR_NONE) continue;
-
-					// Every host bit set reaches the whole of that network. A port of zero
-					// leaves the send path to use the port this socket was given.
-					IPXAddressClass *broadcast = new IPXAddressClass(address | ~mask, 0);
-					BroadcastAddresses.Add(broadcast);
-
-					DebugString("Added broadcast address: %s\n", broadcast->As_String());
-				}
-			}
-		}
-
-		delete[] reinterpret_cast<char *>(adapters);
-
-		if (enumerated) return;
-	}
-
-	// No adapter table, so settle for the host lookup, which reports addresses without
-	// their netmasks, and a broadcast that goes no further than the local wire.
-	DebugString("GetAdaptersInfo failed - falling back on gethostbyname\n");
-
-	char hostname[128];
-
-	if (gethostname(hostname, sizeof(hostname)) == 0) {
-
-		struct hostent *host_info = gethostbyname(hostname);
-
-		if (host_info == nullptr) {
-			DebugString("gethostbyname failed! Error code %d\n", LAST_ERROR);
-		} else {
-			unsigned int **addresses = reinterpret_cast<unsigned int **>(host_info->h_addr_list);
-
-			while (*addresses != nullptr) {
-				unsigned int address = **addresses++;
-
-				DebugString("Found local address: %d.%d.%d.%d\n", address & 0xff, (address & 0xff00) >> 8, (address & 0xff0000) >> 16, (address & 0xff000000) >> 24);
-
-				unsigned char *a = new unsigned char[4];
-				*reinterpret_cast<unsigned int *>(a) = address;
-				LocalAddresses.Add(a);
-			}
+			DebugString("Added broadcast address: %s\n", broadcast->As_String());
 		}
 	}
 
-	if (UseBroadcast) {
-		BroadcastAddresses.Add(new IPXAddressClass(INADDR_BROADCAST, 0));
+	// Nothing named a network of its own, so settle for a broadcast that goes no
+	// further than the local wire. A default address is that blind broadcast.
+	if (UseBroadcast && BroadcastAddresses.Count() == 0) {
+		BroadcastAddresses.Add(new IPXAddressClass());
 	}
 }
 
@@ -515,20 +441,25 @@ void UDPInterfaceClass::Broadcast (void *buffer, int buffer_len)
 void UDPInterfaceClass::Receive_Pending(void)
 {
 	for (int taken = 0; taken < WS_MAX_STATIC_BUFFERS; taken++) {
-		sockaddr_in addr;
+		IPXAddressClass source;
 
-		int rc = Receive_From ( (char*)ReceiveBuffer, sizeof (ReceiveBuffer), &addr );
-		if (rc == RECEIVE_IGNORED) continue;
+		TransferResult const received = Receive_From(ReceiveBuffer, sizeof (ReceiveBuffer), source);
 
-		if (rc == SOCKET_ERROR) {
+		if (received.Error != SocketError::NONE) {
 			// Would-block means the socket is empty; anything else is cleared
 			// and the drain carries on.
-			if (LAST_ERROR == WSAEWOULDBLOCK) return;
+			if (received.Error == SocketError::WOULD_BLOCK) return;
 			Clear_Error();
 			continue;
 		}
 
-		std::span<std::byte const> const datagram(reinterpret_cast<std::byte const *>(ReceiveBuffer), rc > 0 ? static_cast<std::size_t>(rc) : 0);
+		// Nothing this client should see, such as a tunnelled datagram bound
+		// for somebody else.
+		if (received.Length == 0) continue;
+
+		int const rc = received.Length;
+
+		std::span<std::byte const> const datagram(reinterpret_cast<std::byte const *>(ReceiveBuffer), static_cast<std::size_t>(rc));
 		NetAdmission::DatagramResult const admission = NetAdmission::Admit_Datagram(datagram, WS_INTERNET_BUFFER_LEN);
 		if (!admission.Succeeded()) {
 			switch (admission.ErrorCode) {
@@ -549,8 +480,9 @@ void UDPInterfaceClass::Receive_Pending(void)
 		**	Make sure this packet didn't come from us. If it did then throw it away.
 		*/
 		bool ours = false;
+		uint32_t const from_ip = source.Get_IP();
 		for ( int i=0 ; i<LocalAddresses.Count() ; i++ ) {
-			if ( ! memcmp (LocalAddresses[i], &addr.sin_addr.s_addr, 4) ) {
+			if ( ! memcmp (LocalAddresses[i], &from_ip, 4) ) {
 				ours = true;
 				break;
 			}
@@ -571,7 +503,6 @@ void UDPInterfaceClass::Receive_Pending(void)
 		/*
 		**	Copy the address data into the holding buffer address area.
 		*/
-		IPXAddressClass source(addr.sin_addr.s_addr, addr.sin_port);
 		memset ( packet->Address, 0, sizeof (packet->Address) );
 		memcpy ( packet->Address, &source, sizeof (source) );
 
@@ -590,7 +521,6 @@ void UDPInterfaceClass::Receive_Pending(void)
 void UDPInterfaceClass::Send_Pending(void)
 {
 	while (OutBuffers.Count() > 0) {
-		sockaddr_in addr;
 		WinsockBufferType * packet = OutBuffers[0];
 
 		/*
@@ -599,17 +529,16 @@ void UDPInterfaceClass::Send_Pending(void)
 		IPXAddressClass destination;
 		memcpy (&destination, packet->Address, sizeof (destination));
 
-		addr.sin_family = AF_INET;
-		addr.sin_addr.s_addr = destination.Get_IP();
-
 		// An address without a port of its own goes to the port this socket was given.
-		addr.sin_port = destination.Get_Port() != 0 ? destination.Get_Port()
-			: (unsigned short) htons ( DestinationPortSet ? DestinationPort : (unsigned short)WestwoodOnline_PortNumber );
+		if (destination.Get_Port() == 0) {
+			unsigned short const port = DestinationPortSet ? DestinationPort : (unsigned short)WestwoodOnline_PortNumber;
+			destination.Set_Port(Socket_Network_Port(port));
+		}
 
-		int rc = Send_To ( ((char const *)packet->Buffer) - sizeof(packet->CRC), packet->BufferLen + sizeof(packet->CRC), &addr );
+		TransferResult const sent = Send_To ( ((char const *)packet->Buffer) - sizeof(packet->CRC), packet->BufferLen + sizeof(packet->CRC), destination );
 
-		if (rc == SOCKET_ERROR) {
-			if (LAST_ERROR != WSAEWOULDBLOCK) {
+		if (sent.Error != SocketError::NONE) {
+			if (sent.Error != SocketError::WOULD_BLOCK) {
 				Clear_Error();
 			}
 			break;
