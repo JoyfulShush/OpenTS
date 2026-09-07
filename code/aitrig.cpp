@@ -273,12 +273,12 @@ bool AITriggerTypeClass::Process(HouseClass *house, HouseClass *enemy, bool skip
 		}
 	}
 
-	if (MultiSide == 1) {
-		if (house->ActLike != HOUSE_GOOD) {
-			return(false);
+	if (MultiSide > 0) {
+		SideType acted = SIDE_NONE;
+		if (house->ActLike >= HOUSE_FIRST && house->ActLike < HouseTypes.Count()) {
+			acted = HouseTypes[house->ActLike]->Side;
 		}
-	} else if (MultiSide == 2) {
-		if (house->ActLike != HOUSE_BAD) {
+		if (acted == SIDE_NONE || acted != (SideType)(MultiSide - 1)) {
 			return(false);
 		}
 	}

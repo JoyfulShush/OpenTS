@@ -484,7 +484,7 @@ void UnitClass::AI(void)
 
 	FiringSyncDelay = std::max(-1, FiringSyncDelay - 1);
 
-	if (Class->DeploysInto == Rule->BuildConst[0]) {
+	if (Rule->BuildConst.Is_In_List(Class->DeploysInto)) {
 		if (House->IsBaseBuilding && !House->Is_Human_Player()) {
 			if (Session.Type != GAME_NORMAL && House->ConYards.Count() == 0) {
 				if (CurrentMission != MISSION_HUNT && CurrentMission != MISSION_UNLOAD) {
@@ -3626,7 +3626,7 @@ int UnitClass::Do_MISSION_HARVEST(void)
  *=============================================================================================*/
 int UnitClass::Do_MISSION_HUNT(void)
 {
-	if (Class->DeploysInto != NULL && (Class->DeploysInto == Rule->BuildConst[0] || TarCom != NULL || House->Is_Human_Player())) {
+	if (Class->DeploysInto != NULL && (Rule->BuildConst.Is_In_List(Class->DeploysInto) || TarCom != NULL || House->Is_Human_Player())) {
 		enum {
 			FIND_SPOT,
 			WAITING
@@ -4142,17 +4142,8 @@ ActionType UnitClass::What_Action(ObjectClass const * object, bool disallow_forc
 		if (Class->DeploysInto != NULL) {
 
 			Cell cell = Center_Coord().As_Cell();
-			if (Class->DeploysInto == Rule->BuildConst[0]) {
+			if (Rule->BuildConst.Is_In_List(Class->DeploysInto) || Rule->BuildWeapons.Is_In_List(Class->DeploysInto)) {
 				cell = Adjacent_Cell(cell, FACING_NW);
-			} else {
-				bool hasfactory = false;
-				for (int index = 0; index < Rule->BuildWeapons.Count(); index++) {
-					if (Class->DeploysInto == Rule->BuildWeapons[index]) {
-						cell = Adjacent_Cell(cell, FACING_NW);
-						break;
-					}
-				}
-
 			}
 
 			/*
@@ -4373,7 +4364,7 @@ int UnitClass::Do_MISSION_GUARD(void)
 	}
 
 	if (needs_dock || (Class->IsToHarvest && House->IsTiberiumShort)) {
-		if (Class->DeploysInto == Rule->BuildConst[0] && House->IsBaseBuilding && !House->Is_Human_Player()) {
+		if (Rule->BuildConst.Is_In_List(Class->DeploysInto) && House->IsBaseBuilding && !House->Is_Human_Player()) {
 			Assign_Mission(MISSION_UNLOAD);
 			return(Current_Mission_Control().Normal_Delay() + Random_Pick(0, 2));
 		}

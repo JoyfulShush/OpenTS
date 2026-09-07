@@ -575,10 +575,10 @@ class SessionClass
 		DiffType CampaignCDifficulty;
 
 		/*
-		 * If the local player is playing a GDI house, then this flag will be true. A starting
-		 * multiplayer scenario takes its side and its speech set from it.
+		 * The country the local player chose in the lobby. A starting multiplayer scenario takes
+		 * its presented side and its speech set from it.
 		 */
-		bool PlayerIsGDI;
+		HousesType PlayerHouse;
 
 		//.....................................................................
 		// Max allowable # of players & actual # of (human) players

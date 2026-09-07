@@ -87,6 +87,7 @@
 #include "category.h"
 #include "conquer.h"
 #include "coord.h"
+#include "dbgprint.h"
 #include "globals.h"
 #include "houstype.h"
 #include "incdec.h"
@@ -1284,7 +1285,7 @@ bool CCINIClass::Put_HousesType(char const * section, char const * entry, Houses
 /// </summary>
 /// <returns>Returns with the side identifier that matches the name recorded. If the entry
 /// could not be found, then the default value is returned.</returns>
-/// <remarks>A name that is not already known will add a new side to the side list.</remarks>
+/// <remarks>A name that no [Sides] entry declared is logged and leaves the default standing.</remarks>
 SideType CCINIClass::Get_Side(char const * section, char const * entry, SideType defvalue) const
 {
 	char buffer[128];
@@ -1292,8 +1293,8 @@ SideType CCINIClass::Get_Side(char const * section, char const * entry, SideType
 	if (Get_String(section, entry, "", buffer, sizeof(buffer)) && strcmpi(buffer, "<none>")) {
 		SideType side = SideClass::From_Name(buffer);
 		if (side == SIDE_NONE) {
-			SideClass * type = new SideClass(buffer);
-			return((SideType)Sides.ID(type));
+			DebugString("[%s] %s=%s names no side declared in [Sides]; ignored.\n", section, entry, buffer);
+			return(defvalue);
 		}
 		return(side);
 	}
@@ -1887,8 +1888,8 @@ bool CCINIClass::Put_TechnoType_List(char const * section, char const * entry, T
 
 /// <summary>
 /// Fetches a house list from the INI database.
-/// This routine will read a comma separated list of house names. A side may be named in
-/// place of a house, in which case every house belonging to that side is added to the list.
+/// This routine will read a comma separated list of house names; a name that is not a
+/// house is logged and skipped.
 /// </summary>
 /// <returns>Returns with the list of house identifiers specified. If the entry could not be
 /// found, then the default value is returned.</returns>
@@ -1903,15 +1904,8 @@ TypeList<int> CCINIClass::Get_House_List(const char * section, const char * entr
 			int house = (int)HouseTypeClass::From_Name(token);
 			if (house != HOUSE_NONE) {
 				list.Add(house);
-			}
-			else {
-				SideType side = SideClass::From_Name(token);
-				if (side != SIDE_NONE) {
-					SideClass * otherside = Sides[side];
-					for (int index = 0; index < otherside->Houses.Count(); index++) {
-						list.Add(otherside->Houses[index]);
-					}
-				}
+			} else {
+				DebugString("[%s] %s names no country: %s; skipped.\n", section, entry, token);
 			}
 			token = strtok(NULL, ",");
 		}
