@@ -742,11 +742,11 @@ void WinsockInterfaceClass::Broadcast (void *buffer, int buffer_len)
 
 
 /***********************************************************************************************
- * WIC::Clear_Socket_Error -- Clear any outstanding erros on the socket                        *
+ * WIC::Clear_Error -- Clear any outstanding erros on the socket                               *
  *                                                                                             *
  *                                                                                             *
  *                                                                                             *
- * INPUT:    Socket                                                                            *
+ * INPUT:    Nothing                                                                           *
  *                                                                                             *
  * OUTPUT:   Nothing                                                                           *
  *                                                                                             *
@@ -755,15 +755,15 @@ void WinsockInterfaceClass::Broadcast (void *buffer, int buffer_len)
  * HISTORY:                                                                                    *
  *    8/5/97 12:05PM ST : Created                                                              *
  *=============================================================================================*/
-void WinsockInterfaceClass::Clear_Socket_Error(SOCKET socket)
+void WinsockInterfaceClass::Clear_Error(void)
 {
 	unsigned int error_code;
 	int length = 4;
 
-	if (socket != INVALID_SOCKET) {
-		getsockopt (socket, SOL_SOCKET, SO_ERROR, (char*)&error_code, &length);
+	if (Socket != INVALID_SOCKET) {
+		getsockopt (Socket, SOL_SOCKET, SO_ERROR, (char*)&error_code, &length);
 		error_code = 0;
-		setsockopt (socket, SOL_SOCKET, SO_ERROR, (char*)&error_code, length);
+		setsockopt (Socket, SOL_SOCKET, SO_ERROR, (char*)&error_code, length);
 	}
 }
 

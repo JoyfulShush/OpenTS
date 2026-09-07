@@ -113,7 +113,7 @@ class WinsockInterfaceClass {
 		// Call wherever the manager is serviced.
 		virtual void Service(void);
 
-		virtual void Clear_Socket_Error(SOCKET socket);
+		virtual void Clear_Error(void);
 
 		virtual bool Set_Socket_Options ( void );
 
@@ -124,7 +124,7 @@ class WinsockInterfaceClass {
 			return(PROTOCOL_NONE);
 		};
 
-		virtual bool Open_Socket ( SOCKET ) {
+		virtual bool Open_Socket(void) {
 			return(false);
 		};
 

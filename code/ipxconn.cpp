@@ -273,7 +273,7 @@ int IPXConnClass::Send(char *buf, int buflen, void *, int)
  *=========================================================================*/
 int IPXConnClass::Open_Socket(void)
 {
-	int rc = PacketTransport->Open_Socket(0);
+	int rc = PacketTransport->Open_Socket();
 
 	SocketOpen = rc;
 	return( rc );

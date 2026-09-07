@@ -286,7 +286,7 @@ void UDPInterfaceClass::Set_Broadcast_Address (const IPXAddressClass &address)
  * HISTORY:                                                                                    *
  *    8/5/97 12:13PM ST : Created                                                              *
  *=============================================================================================*/
-bool UDPInterfaceClass::Open_Socket ( SOCKET )
+bool UDPInterfaceClass::Open_Socket(void)
 {
 	LINGER ling;
 	struct 	sockaddr_in addr;
@@ -524,7 +524,7 @@ void UDPInterfaceClass::Receive_Pending(void)
 			// Would-block means the socket is empty; anything else is cleared
 			// and the drain carries on.
 			if (LAST_ERROR == WSAEWOULDBLOCK) return;
-			Clear_Socket_Error (Socket);
+			Clear_Error();
 			continue;
 		}
 
@@ -610,7 +610,7 @@ void UDPInterfaceClass::Send_Pending(void)
 
 		if (rc == SOCKET_ERROR) {
 			if (LAST_ERROR != WSAEWOULDBLOCK) {
-				Clear_Socket_Error (Socket);
+				Clear_Error();
 			}
 			break;
 		}
