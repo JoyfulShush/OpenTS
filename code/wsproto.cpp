@@ -368,8 +368,8 @@ bool WinsockInterfaceClass::Init(void)
  *=============================================================================================*/
 void WinsockInterfaceClass::Build_Packet_CRC(WinsockBufferType * packet)
 {
-	fw_assert (packet->InUse);
-	fw_assert (packet->BufferLen);
+	assert (packet->InUse);
+	assert (packet->BufferLen);
 
 	packet->CRC = Calculate_Packet_CRC(packet->Buffer, packet->BufferLen);
 }
@@ -429,7 +429,7 @@ void *WinsockInterfaceClass::Get_New_Out_Buffer(void)
 	WinsockBufferType *buffer = NULL;
 	int pos;
 
-	fw_assert (OutBuffersUsed <= WS_MAX_STATIC_BUFFERS);
+	assert (OutBuffersUsed <= WS_MAX_STATIC_BUFFERS);
 
 	/*
 	**	If there are no more free buffers in the heap then allocate one.
@@ -458,7 +458,7 @@ void *WinsockInterfaceClass::Get_New_Out_Buffer(void)
 		}
 	}
 
-	fw_assert (buffer != NULL);
+	assert (buffer != NULL);
 	return(buffer);
 }
 
@@ -482,7 +482,7 @@ void *WinsockInterfaceClass::Get_New_In_Buffer(void)
 	WinsockBufferType *buffer = NULL;
 	int pos;
 
-	fw_assert (InBuffersUsed <= WS_MAX_STATIC_BUFFERS);
+	assert (InBuffersUsed <= WS_MAX_STATIC_BUFFERS);
 
 	/*
 	**	If there are no more free buffers in the heap then allocate one.
@@ -511,7 +511,7 @@ void *WinsockInterfaceClass::Get_New_In_Buffer(void)
 		}
 	}
 
-	fw_assert (buffer != NULL);
+	assert (buffer != NULL);
 	return(buffer);
 }
 
@@ -546,12 +546,12 @@ int WinsockInterfaceClass::Read(void *buffer, int &buffer_len, void *address, in
 	*/
 	int packetnum = 0;
 	WinsockBufferType *packet = InBuffers[packetnum];
-	fw_assert(packet != NULL);
+	assert(packet != NULL);
 	if (packet == NULL) {
 		return(0);
 	}
 
-	fw_assert(packet->InUse);
+	assert(packet->InUse);
 
 	int buffer_capacity = buffer_len;
 	int address_capacity = address_len;
@@ -628,7 +628,7 @@ void WinsockInterfaceClass::WriteTo(void *buffer, int buffer_len, void *address,
 	**	Create a temporary holding area for the packet.
 	*/
 	WinsockBufferType *packet = (WinsockBufferType*) Get_New_Out_Buffer();
-	fw_assert (packet != NULL);
+	assert (packet != NULL);
 	if (packet == NULL) {
 		return;
 	}
@@ -679,7 +679,7 @@ void WinsockInterfaceClass::Broadcast (void *buffer, int buffer_len)
 	**	Create a temporary holding area for the packet.
 	*/
 	WinsockBufferType *packet = (WinsockBufferType*) Get_New_Out_Buffer();
-	fw_assert(packet != NULL);
+	assert(packet != NULL);
 	if (packet == NULL) {
 		return;
 	}

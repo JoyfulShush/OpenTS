@@ -38,10 +38,6 @@
 
 #include <memory>
 
-#ifndef fw_assert
-#define fw_assert assert
-#endif
-
 /*
 **	Misc defines
 */
