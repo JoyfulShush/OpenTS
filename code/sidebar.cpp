@@ -1829,7 +1829,15 @@ char const * SidebarClass::StripClass::Help_Text(int id)
 	if (GameActive) {
 		if (i < BuildableCount) {
 			if (Buildables[i].BuildableType == RTTI_SPECIAL) {
-				return(SuperWeaponTypes[Buildables[i].BuildableID]->Full_Name());
+				auto superweapon = SuperWeaponTypes[Buildables[i].BuildableID];
+
+				if (superweapon->Description.empty()) {
+					return (superweapon->Full_Name());
+				}
+
+				std::string_view fullName = superweapon->Full_Name();
+				text = std::vformat(Fetch_String(TXT_SUPERWEAPON_TOOLTIP), std::make_format_args(fullName, superweapon->Description));
+				return(text.c_str());
 			}
 
 			TechnoTypeClass const * choice = Fetch_Techno_Type(Buildables[i].BuildableType, Buildables[i].BuildableID);
