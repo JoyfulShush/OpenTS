@@ -126,6 +126,7 @@
 
 #include <algorithm>
 #include <compare>
+#include <format>
 
 ShapeSet const * SidebarClass::SidebarShape = NULL;
 ShapeSet const * SidebarClass::SidebarMiddleShape = NULL;
@@ -1821,7 +1822,7 @@ bool SidebarClass::StripClass::AI(KeyNumType & input, Point2D const & xy)
 /// <returns>Returns with a pointer to the help text, or NULL if that slot is empty.</returns>
 char const * SidebarClass::StripClass::Help_Text(int id)
 {
-	static char _buffer[84];
+	static std::string text = "";
 
 	int i = id + TopIndex;
 
@@ -1836,13 +1837,16 @@ char const * SidebarClass::StripClass::Help_Text(int id)
 				return(NULL);
 			}
 
-			if (Map.IsCameoText) {
-				sprintf(_buffer, Fetch_String(TXT_MONEY_FORMAT_1), choice->Cost_Of(PlayerPtr));
+			std::string_view fullName = choice->Full_Name();
+			int cost = choice->Cost_Of(PlayerPtr);
+
+			if (choice->Description.empty()) {
+				text = std::vformat(Fetch_String(TXT_MONEY_FORMAT_1), std::make_format_args(fullName, cost));
 			} else {
-				sprintf(_buffer, Fetch_String(TXT_MONEY_FORMAT_2), choice->Full_Name(), choice->Cost_Of(PlayerPtr));
+				text = std::vformat(Fetch_String(TXT_MONEY_FORMAT_2), std::make_format_args(fullName, cost, choice->Description));
 			}
 
-			return(_buffer);
+			return(text.c_str());
 		}
 	}
 
@@ -2858,9 +2862,9 @@ void SidebarClass::Reposition_Sidebar(void)
 /// </summary>
 /// <param name="id">The gadget identifier that text is wanted for.</param>
 /// <returns>Returns with a pointer to the help text, or NULL if the gadget has none.</returns>
-const char * SidebarClass::Help_Text(int id)
+char const * SidebarClass::Help_Text(int id)
 {
-	const char *text = BASECLASS::Help_Text(id);
+	char const *text = BASECLASS::Help_Text(id);
 	if (text == NULL) {
 		id = id - GADGET_CAMEO;
 		int index = id >> 8;
