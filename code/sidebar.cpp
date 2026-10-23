@@ -2870,9 +2870,9 @@ void SidebarClass::Reposition_Sidebar(void)
 /// </summary>
 /// <param name="id">The gadget identifier that text is wanted for.</param>
 /// <returns>Returns with a pointer to the help text, or NULL if the gadget has none.</returns>
-char const * SidebarClass::Help_Text(int id)
+const char * SidebarClass::Help_Text(int id)
 {
-	char const *text = BASECLASS::Help_Text(id);
+	const char *text = BASECLASS::Help_Text(id);
 	if (text == NULL) {
 		id = id - GADGET_CAMEO;
 		int index = id >> 8;
