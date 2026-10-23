@@ -137,8 +137,8 @@ class SuperWeaponTypeClass : public AbstractTypeClass
 		 */
 		bool IsManualControl;
 
-		/**
-		 *  Optional description for the sidebar tooltip.
+		/*
+		 * Optional description for the sidebar tooltip.
 		 */
 		std::string Description;
 };

@@ -1832,7 +1832,7 @@ char const * SidebarClass::StripClass::Help_Text(int id)
 				auto superweapon = SuperWeaponTypes[Buildables[i].BuildableID];
 
 				if (superweapon->Description.empty()) {
-					return (superweapon->Full_Name());
+					return(superweapon->Full_Name());
 				}
 
 				std::string_view fullName = superweapon->Full_Name();
