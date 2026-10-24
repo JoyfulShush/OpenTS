@@ -1204,6 +1204,8 @@ restart:
 	*/
 	Keyboard->Clear();
 	SaveManager.Reset_Multiplayer_Save_State();
+	EventClass::Reset_Announcements();
+	Session.Reset_Departures();
 
 	/*
 	**	Initialize the random number generator(s)
@@ -1300,7 +1302,7 @@ restart:
 				Ipx.Set_Timing(std::max<unsigned>(TIMER_SECOND, Ipx.Global_Response_Time() + 2), (unsigned int) -1, 10 * TIMER_SECOND);
 			}
 		}
-	} else if (Session.Play && (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET)) {
+	} else if (Session.Play && Session.Is_Network_Game()) {
 		Session.Reset_Network_Timing(Frame >= 0 ? static_cast<unsigned int>(Frame) : 0u);
 	}
 
@@ -3468,12 +3470,8 @@ class AllianceCommandClass : public CommandClass
 		}
 
 		virtual void Execute(void) const {
-			if (Session.Type != GAME_NORMAL && !Scen->Special.IsAllianceFixed && Session.Options.AlliesAllowed) {
-				if (CurrentObject.Count() && !PlayerPtr->IsDefeated) {
-					if (CurrentObject[0]->Owner_HouseClass() != PlayerPtr && CurrentObject[0]->Owner_HouseClass()->IsHuman) {
-						OutList.push_back(EventClass(PlayerPtr->HeapID, EventClass::ALLY, CurrentObject[0]->Owner()));
-					}
-				}
+			if (CurrentObject.Count() && PlayerPtr->Can_Change_Alliance(CurrentObject[0]->Owner_HouseClass())) {
+				OutList.push_back(EventClass(PlayerPtr->HeapID, EventClass::ALLY, CurrentObject[0]->Owner()));
 			}
 		}
 };
