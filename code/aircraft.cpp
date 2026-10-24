@@ -3702,7 +3702,9 @@ LayerType AircraftClass::In_Which_Layer(void) const
  *=============================================================================================*/
 void AircraftClass::Look(bool incremental, bool dont_map)
 {
-	assert(!IsInLimbo);
+	if (IsInLimbo) {
+		return;
+	}
 
 	int sight_range = Get_Sight_Range();
 	if (HeightAGL == 0) {
