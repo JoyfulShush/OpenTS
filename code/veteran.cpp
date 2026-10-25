@@ -105,9 +105,9 @@ VeterancyClass::~VeterancyClass(void)
 /// If this causes the unit to be promoted, produces an event call to handle changes as a result of the promotion.
 /// </summary>
 /// <param name="value">The amount of experience to set. Cannot exceed the maximum allowed experience set by VeteranCap.
-/// <param name="notify_player">Passed to the callback to determine whether the player should be notified on the promotion. This
+/// <param name="silent">Passed to the callback to determine whether the player should be notified on the promotion. This
 /// is relevant in cases where promotion occurs artificially, such as spawning an elite unit via triggers. Defaults to true.
-void VeterancyClass::Set_Experience(double value, bool notify_player)
+void VeterancyClass::Set_Experience(double value, bool silent)
 {
 	auto old_rank = Get_Rank();
 
@@ -116,7 +116,7 @@ void VeterancyClass::Set_Experience(double value, bool notify_player)
 	auto new_rank = Get_Rank();
 
 	if (new_rank > old_rank) {
-		On_Unit_Promoted_Callback(notify_player);
+		On_Unit_Promoted_Callback(silent);
 	}
 }
 
@@ -214,10 +214,10 @@ void VeterancyClass::Set_Rookie()
 /// Clearing veteran status drops the unit back to rookie rather than to whatever it
 /// happened to be before.
 /// </summary>
-/// <param name="notify_player">Should the player be notified on this promotion?</param>
-void VeterancyClass::Set_Veteran(bool notify_player)
+/// <param name="silent">Should the player be notified on this promotion?</param>
+void VeterancyClass::Set_Veteran(bool silent)
 {
-	Set_Experience(1, notify_player);
+	Set_Experience(1, silent);
 }
 
 
@@ -226,10 +226,10 @@ void VeterancyClass::Set_Veteran(bool notify_player)
 /// Clearing elite status does not merely undo the promotion -- it drops the unit all the
 /// way back to rookie.
 /// </summary>
-/// <param name="notify_player">Should the player be notified on this promotion?</param>
-void VeterancyClass::Set_Elite(bool notify_player)
+/// <param name="silent">Should the player be notified on this promotion?</param>
+void VeterancyClass::Set_Elite(bool silent)
 {
-	Set_Experience(2, notify_player);
+	Set_Experience(2, silent);
 }
 
 

@@ -264,7 +264,7 @@ TechnoClass::TechnoClass(HouseClass * house) :
 	PurchasePrice(0),
 	ActLike(HOUSE_NONE),
 	Cargo(),
-	Veterancy([this](bool notify_player) { On_Unit_Promoted(notify_player); }),
+	Veterancy([this](bool silent) { On_Promoted(silent); }),
 	RadarFlashTimer(),
 	RadarPos(0,0),
 	Group(-1),
@@ -9162,8 +9162,8 @@ void TechnoClass::Set_Talker(TechnoClass * techno, TalkType bubble)
 /// if the techno being promoted is under his control.
 /// Dumbasses being promoted to rookies never notify players for their promotions.
 /// </summary>
-/// <param name="notify_player">Whether the player should be notified via sounds and visuals for the promotion of their technos.</param>
-void TechnoClass::On_Unit_Promoted(bool notify_player)
+/// <param name="silent">Whether the player should be notified via sounds and visuals for the promotion of their technos.</param>
+void TechnoClass::On_Promoted(bool silent)
 {
 	auto new_rank = Veterancy.Get_Rank();
 
@@ -9171,7 +9171,7 @@ void TechnoClass::On_Unit_Promoted(bool notify_player)
 	Look();
 	
 	if (new_rank == RANK_ROOKIE) return;
-	if (!notify_player) return;
+	if (!silent) return;
 	if (!House->Is_Player_Control()) return;
 
 	auto sound = new_rank == RANK_ELITE ? Rule->UpgradeEliteSound : Rule->UpgradeVeteranSound;
@@ -9179,5 +9179,5 @@ void TechnoClass::On_Unit_Promoted(bool notify_player)
 
 	Speak(Rule->VoxUnitPromoted);
 	Sound_Effect(sound, PositionCoord);
-	FlashCount = flash_count;	
+	FlashCount = flash_count;
 }
