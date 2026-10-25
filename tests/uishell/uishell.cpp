@@ -9,6 +9,7 @@
 
 #include "ui/uishell.h"
 
+#include "ui/rml/rmlfont.h"
 #include "ui/rml/rmlfontfon.h"
 #include "ui/rml/rmlimage.h"
 #include "ui/rml/rmlkeys.h"
@@ -17,6 +18,7 @@
 #include "ui/rml/rmlsurface.h"
 #include "ui/rml/rmlsystem.h"
 #include "ui/rml/rmlview.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/screens/display/uidisplay.h"
 #include "ui/screens/gamectrl/uigamectrl.h"
 #include "ui/screens/gameopt/uigameopt.h"
@@ -50,6 +52,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #undef GetFirstChild
@@ -1305,7 +1308,6 @@ void Test_Game_Controls_Presenter(void)
 		state.Detail = 2;
 		state.Difficulty = 1;
 		state.InGame = false;
-		state.HasSpeed = true;
 		state.HasDifficulty = true;
 		state.SpeedNames = { "Slowest", "Slower", "Slow", "Medium", "Fast", "Faster", "Fastest" };
 		state.DetailNames = { "Low", "Medium", "High" };
@@ -1331,7 +1333,6 @@ void Test_Game_Controls_Presenter(void)
 		RecordingGameControlsServiceClass service;
 		UIGameControlsState state;
 		state.InGame = true;
-		state.HasSpeed = false;
 		state.HasDifficulty = false;
 
 		UIGameControlsPresenterClass presenter(service, state);
@@ -1341,7 +1342,7 @@ void Test_Game_Controls_Presenter(void)
 		presenter.State.SoundEnabled = true;
 		Drive(presenter, "sound");
 		Check(presenter.Result.has_value() && presenter.Next == UIGameControlsPresenterClass::NEXT_SOUND, "the Sound button accepts and names the sound options next");
-		Check(service.Joined() == "scroll 0; detail 0; cameo off; lines off; tooltips off; coasting off; edge off; save", "an Internet game applies no game speed and no difficulty");
+		Check(service.Joined() == "speed 0; scroll 0; detail 0; cameo off; lines off; tooltips off; coasting off; edge off; save", "the in-game screen applies the game speed and no difficulty");
 	}
 
 	{
@@ -1422,6 +1423,109 @@ void Test_Reconnect_Presenter(void)
 
 	Drive(presenter, "cancel");
 	Check(presenter.Cancelled, "cancel asks to leave the game");
+}
+
+
+class RecordingDiplomacyServiceClass : public UIDiplomacyServiceClass
+{
+	public:
+		virtual void Toggle_Alliance(int house) override { Calls.push_back("ally " + std::to_string(house)); }
+		virtual void Toggle_Control(int house) override { Calls.push_back("give " + std::to_string(house)); }
+		virtual void Set_Sends_To(int house, bool sends) override { Calls.push_back("send " + std::to_string(house) + (sends ? " on" : " off")); }
+		virtual void Set_Muted(int house, bool muted) override { Calls.push_back("mute " + std::to_string(house) + (muted ? " on" : " off")); }
+		virtual bool Chat_Edit_Open(void) override { return(Editing); }
+
+		std::vector<std::string> Calls;
+		bool Editing = false;
+};
+
+
+UIDiplomacyRow Diplomacy_Player(int house, std::string const & name)
+{
+	UIDiplomacyRow row;
+	row.House = house;
+	row.Name = name;
+	row.Color = "#fcd400";
+	row.Kills = "1234";
+	row.HasAlly = true;
+	row.AllyEnabled = true;
+	row.Theirs = "Yes";
+	row.TheirsYes = true;
+	row.HasGive = true;
+	row.GiveEnabled = true;
+	row.Given = "No";
+	row.HasChat = true;
+	row.Send = true;
+	row.Latency = "1500 ms";
+	row.LatencyPoor = true;
+	row.Waiting = true;
+	row.WaitingTip = "Waited on them 1.8 s in the last 30 s";
+	return(row);
+}
+
+
+UIDiplomacyRow Diplomacy_Observer(int house, std::string const & name)
+{
+	UIDiplomacyRow row;
+	row.House = house;
+	row.Name = name;
+	row.Color = "#848a84";
+	row.HasChat = true;
+	row.Send = true;
+	row.Latency = "1500 ms";
+	return(row);
+}
+
+
+// The longest names a seat can hold, so the layout checks see the widest text.
+UIDiplomacyState Diplomacy_State(int players, int observers)
+{
+	UIDiplomacyState state;
+	state.ShowControl = true;
+	state.ShowChat = true;
+	state.Info = "Tiberium Garden Redux of the Long Name - 1:23:45 - Connection: Normal";
+	state.Footer = "Waiting most on WWWWWWWWWWWWWWWW: 12.3 s in the last 30 s";
+	for (int index = 0; index < players; index++) {
+		state.Players.push_back(Diplomacy_Player(index, "WWWWWWWWWWWWWWWW"));
+	}
+	for (int index = 0; index < observers; index++) {
+		state.Observers.push_back(Diplomacy_Observer(players + index, "WWWWWWWWWWWWWWWW"));
+	}
+	return(state);
+}
+
+
+void Test_Diplomacy_Presenter(void)
+{
+	RecordingDiplomacyServiceClass service;
+	UIDiplomacyPresenterClass presenter(service);
+	presenter.State = Diplomacy_State(3, 1);
+	presenter.State.Players[1].AllyEnabled = false;
+	presenter.State.Players[2].Mute = true;
+
+	Drive(presenter, "ally", 0);
+	Drive(presenter, "give", 0);
+	Drive(presenter, "send", 0);
+	Drive(presenter, "mute", 2);
+	Drive(presenter, "send", 3);
+	Check(service.Calls == std::vector<std::string>{ "ally 0", "give 0", "send 0 off", "mute 2 off", "send 3 off" },
+		"each box asks the game for the change its row allows, flipping the state the row shows");
+	Check(presenter.Take_Acted() && !presenter.Take_Acted(), "an action is reported once");
+
+	service.Calls.clear();
+	Drive(presenter, "ally", 1);
+	Check(service.Calls.empty() && presenter.Take_Acted(), "a click on a disabled box asks for nothing but still counts, so the box is put back");
+
+	Drive(presenter, "ally", 99);
+	Check(service.Calls.empty() && !presenter.Take_Acted(), "a click naming no row is ignored");
+
+	Check(!presenter.Keys_Belong_To_Game(), "keys stay with the screen while no chat line is typed");
+	service.Editing = true;
+	Check(presenter.Keys_Belong_To_Game(), "and go to the game while one is");
+
+	Check(!presenter.Closed, "the screen opens unclosed");
+	Drive(presenter, "close");
+	Check(presenter.Closed, "close asks to take the screen down");
 }
 
 
@@ -1703,6 +1807,107 @@ void Test_Reconnect_Screen(Rml::Context & context, CountingSystemInterfaceClass 
 	Rml::Element * message = document->QuerySelector("#messages .item");
 	Check(message != nullptr && message->GetComputedValues().font_family() == "dlg-sans", "the reconnect message list keeps its sans font family");
 
+	view->Release();
+	context.Update();
+}
+
+
+// Every cell except the player name, which clips by design, must show its whole text.
+bool Diplomacy_Cells_Fit(Rml::ElementDocument * document)
+{
+	Rml::ElementList cells;
+	document->QuerySelectorAll(cells, ".row > span");
+	for (Rml::Element * cell : cells) {
+		if (cell->IsClassSet("c-name") || cell->GetComputedValues().display() == Rml::Style::Display::None) {
+			continue;
+		}
+		if (cell->GetScrollWidth() > cell->GetClientWidth() + 0.5f) {
+			std::printf("diplomacy cell overflows: '%s' %.1f > %.1f\n", cell->GetInnerRML().c_str(), cell->GetScrollWidth(), cell->GetClientWidth());
+			return(false);
+		}
+	}
+	for (char const * id : { "title", "info", "footer" }) {
+		Rml::Element * element = document->GetElementById(id);
+		if (element == nullptr || element->GetScrollWidth() > element->GetClientWidth() + 0.5f) {
+			std::printf("diplomacy %s overflows\n", id);
+			return(false);
+		}
+	}
+	return(true);
+}
+
+
+float Bottom_Of(Rml::Element * element)
+{
+	return(element->GetAbsoluteOffset(Rml::BoxArea::Border).y + element->GetBox().GetSize(Rml::BoxArea::Border).y);
+}
+
+
+void Test_Diplomacy_Screen(Rml::Context & context, CountingSystemInterfaceClass & system)
+{
+	struct Split {
+		int Players;
+		int Observers;
+	};
+
+	for (Split const split : { Split{ 8, 0 }, Split{ 1, 7 }, Split{ 7, 1 } }) {
+		int problems = system.Problems;
+		RecordingDiplomacyServiceClass service;
+		UIDiplomacyPresenterClass presenter(service);
+		presenter.State = Diplomacy_State(split.Players, split.Observers);
+		presenter.State.Info = "Tiberium Garden - 1:23:45 - Connection: Normal";
+		presenter.State.Footer = "Waiting most on Commander Kane 1: 12.3 s in the last 30 s";
+		std::unique_ptr<UIViewClass> view = UI_Diplomacy_View(presenter);
+
+		Check(Rml(*view).Prepare(context), "the diplomacy view prepares against the test context");
+		view->Show(false);
+		view->Sync();
+		context.Update();
+		context.Render();
+		Check(system.Problems == problems, "the diplomacy screen raises no RmlUi warning or error");
+
+		Rml::ElementDocument * document = Rml(*view).Document();
+		Rml::Element * groups = document->GetElementById("groups");
+		Rml::Element * footer = document->GetElementById("footer");
+		Rml::Element * close = document->GetElementById("close");
+		Rml::Element * reveal = document->GetElementById("reveal");
+		Check(groups != nullptr && footer != nullptr && close != nullptr && reveal != nullptr, "the diplomacy screen has its groups, footer and button");
+		if (groups == nullptr || footer == nullptr || close == nullptr || reveal == nullptr) {
+			view->Release();
+			continue;
+		}
+
+		Rml::ElementList rows;
+		document->QuerySelectorAll(rows, ".row");
+		int const shown = (int)std::count_if(rows.begin(), rows.end(), [](Rml::Element * row) { return(row->IsVisible(true)); });
+		Check(shown == 2 + split.Players + split.Observers, "the diplomacy screen draws a row for every seat");
+
+		float const footertop = footer->GetAbsoluteOffset(Rml::BoxArea::Border).y;
+		Check(Bottom_Of(groups) <= footertop - 8.0f, "every seat fits above the footer with room to spare");
+		Check(Bottom_Of(close) <= Bottom_Of(reveal) - 8.0f, "the close button sits inside the frame");
+		Check(Diplomacy_Cells_Fit(document), "every column shows its whole heading and value");
+
+		Rml::Element * head = document->QuerySelector("#players .row.head");
+		Rml::Element * name = document->QuerySelector("#players .row .c-name");
+		Check(head != nullptr && std::fabs(head->GetClientWidth() - 556.0f) < 0.5f, "the rows span the 556dp inside the group");
+		Check(name != nullptr && name->GetClientWidth() >= 150.0f, "with every column shown, the name still gets about 156dp");
+
+		view->Release();
+		context.Update();
+	}
+
+	RecordingDiplomacyServiceClass service;
+	UIDiplomacyPresenterClass presenter(service);
+	presenter.State = Diplomacy_State(4, 0);
+	presenter.State.ShowControl = false;
+	presenter.State.ShowChat = false;
+	std::unique_ptr<UIViewClass> view = UI_Diplomacy_View(presenter);
+	Check(Rml(*view).Prepare(context), "the diplomacy view prepares without the control and chat columns");
+	view->Show(false);
+	view->Sync();
+	context.Update();
+	Rml::Element * name = Rml(*view).Document()->QuerySelector("#players .row .c-name");
+	Check(name != nullptr && name->GetClientWidth() >= 340.0f, "hidden columns give their width to the name");
 	view->Release();
 	context.Update();
 }
@@ -2214,7 +2419,6 @@ void Test_Game_Controls_Screen(Rml::Context & context, CountingSystemInterfaceCl
 		RecordingGameControlsServiceClass service;
 		UIGameControlsState state = Game_Controls_Fixture();
 		state.InGame = true;
-		state.HasSpeed = true;
 		state.HasDifficulty = false;
 		state.SoundEnabled = true;
 
@@ -2282,7 +2486,6 @@ void Test_Game_Controls_Screen(Rml::Context & context, CountingSystemInterfaceCl
 		RecordingGameControlsServiceClass service;
 		UIGameControlsState state = Game_Controls_Fixture();
 		state.InGame = false;
-		state.HasSpeed = true;
 		state.HasDifficulty = true;
 
 		UIGameControlsPresenterClass presenter(service, state);
@@ -2327,19 +2530,17 @@ void Test_Game_Controls_Screen(Rml::Context & context, CountingSystemInterfaceCl
 		RecordingGameControlsServiceClass service;
 		UIGameControlsState state = Game_Controls_Fixture();
 		state.InGame = true;
-		state.HasSpeed = false;
 		state.HasDifficulty = false;
 		state.SoundEnabled = false;
 
 		UIGameControlsPresenterClass presenter(service, state);
 		std::unique_ptr<UIViewClass> view = UI_Game_Controls_View(presenter);
 
-		Check(Rml(*view).Prepare(context), "the Internet game controls view prepares");
+		Check(Rml(*view).Prepare(context), "the in-game controls view prepares");
 		view->Show(true);
 		context.Update();
 
 		Rml::ElementDocument * document = Rml(*view).Document();
-		Check(Visible_Sliders(document) == 2, "the Internet screen has no game speed slider");
 
 		Rml::Element * sound = document->GetElementById("sound");
 		Check(sound != nullptr && sound->IsClassSet("disabled"), "the Sound button shows disabled without an audio device");
@@ -2354,7 +2555,7 @@ void Test_Game_Controls_Screen(Rml::Context & context, CountingSystemInterfaceCl
 		context.ProcessKeyUp(Rml::Input::KI_RETURN, 0);
 		context.Update();
 		presenter.Drain();
-		Check(presenter.Result.has_value() && *presenter.Result == UI_RESULT_ACCEPTED && service.Joined() == "scroll 2; detail 1; cameo on; lines off; tooltips on; coasting off; edge off; save", "Enter accepts the Internet screen without a game speed or a difficulty");
+		Check(presenter.Result.has_value() && *presenter.Result == UI_RESULT_ACCEPTED && service.Joined() == "speed 4; scroll 2; detail 1; cameo on; lines off; tooltips on; coasting off; edge off; save", "Enter accepts the in-game screen with a game speed and no difficulty");
 
 		view->Release();
 		context.Update();
@@ -3327,8 +3528,6 @@ void Test_Game_Options_Screen(Rml::Context & context, CountingSystemInterfaceCla
 	RecordingGameOptionsServiceClass service;
 
 	UIGameOptionsState state;
-	state.SpeedNames = { "Slowest", "Fastest" };
-	state.SpeedName = "Slowest";
 	UIGameOptionsPresenterClass presenter(service, state);
 	std::unique_ptr<UIViewClass> view = UI_Game_Options_View(presenter);
 
@@ -3350,6 +3549,24 @@ void Test_Game_Options_Screen(Rml::Context & context, CountingSystemInterfaceCla
 	Check(!presenter.State.LoadEnabled && load != nullptr && erase != nullptr && load->IsClassSet("disabled") && erase->IsClassSet("disabled"), "a delete that leaves no saves takes the presses away on the same pass");
 
 	view->Release();
+	context.Update();
+
+	UIGameOptionsState network;
+	network.Solo = false;
+	UIGameOptionsPresenterClass networkpresenter(service, network);
+	std::unique_ptr<UIViewClass> networkview = UI_Game_Options_View(networkpresenter);
+	Check(Rml(*networkview).Prepare(context), "the network options menu view prepares");
+	networkview->Show(true);
+	networkview->Sync();
+	context.Update();
+
+	auto shown = [&](char const * id) {
+		Rml::Element * element = Rml(*networkview).Document()->GetElementById(id);
+		return(element != nullptr && element->IsVisible(true));
+	};
+	Check(shown("load") && shown("save") && !shown("delete") && !shown("briefing"), "a network game's menu offers Load and Save without Delete or Restate Briefing");
+
+	networkview->Release();
 	context.Update();
 }
 
@@ -4020,6 +4237,61 @@ static bool Read_Strike(std::vector<std::uint8_t> const & fnt, UIRasterStrike & 
 }
 
 
+void Test_Font_Shadow(Rml::Context & context)
+{
+	UIRasterStrike strike;
+	Check(Read_Strike(Build_Strike(0, 'M'), strike), "a strike reads for the shadow test");
+
+	UIFontEngineClass engine;
+	engine.Set_Fallback(nullptr);
+	Check(engine.Load_Strikes("T", { strike }), "the engine takes the strike as a face");
+	Rml::FontFaceHandle face = engine.GetFontFaceHandle("T", Rml::Style::FontStyle::Normal, Rml::Style::FontWeight::Normal, 4);
+	Check(face != 0, "the strike's height finds its face");
+
+	Rml::ElementDocument * document = context.LoadDocumentFromMemory(
+		"<rml><body style='font-family: dlg-sans; font-size: 13px;'><p id='shadowed' style='font-effect: shadow(2px 3px #ff0000);'>M</p>"
+		"<p id='outlined' style='font-effect: outline(1px #00ff00);'>M</p></body></rml>");
+	Check(document != nullptr, "the effect document loads");
+	if (document == nullptr || face == 0) {
+		return;
+	}
+
+	Rml::Property const * shadowed = document->GetElementById("shadowed")->GetProperty(Rml::PropertyId::FontEffect);
+	Rml::Property const * outlined = document->GetElementById("outlined")->GetProperty(Rml::PropertyId::FontEffect);
+	Rml::FontEffectsPtr shadow = shadowed != nullptr ? shadowed->Get<Rml::FontEffectsPtr>() : nullptr;
+	Rml::FontEffectsPtr outline = outlined != nullptr ? outlined->Get<Rml::FontEffectsPtr>() : nullptr;
+	Check(shadow != nullptr && outline != nullptr, "both effects parse");
+
+	if (shadow != nullptr && outline != nullptr) {
+		Rml::FontEffectsHandle effects = engine.PrepareFontEffects(face, shadow->list);
+		Check(effects != 0 && engine.PrepareFontEffects(face, shadow->list) == effects, "a shadow prepares on a game face, once for the same effects");
+		Check(engine.PrepareFontEffects(face, outline->list) == 0, "an outline, which needs glyphs of its own, leaves a game face plain");
+
+		Rml::TexturedMeshList meshes;
+		Rml::String const language;
+		Rml::TextShapingContext shaping{ language };
+		Rml::ColourbPremultiplied white(255, 255, 255, 255);
+		int const width = engine.GenerateString(context.GetRenderManager(), face, effects, "M", Rml::Vector2f(10.0f, 20.0f), white, 1.0f, shaping, meshes);
+		Check(width == 3 && meshes.size() == 2, "a shadowed line draws the shadow and the text as two layers");
+		if (meshes.size() == 2 && !meshes[0].mesh.vertices.empty() && !meshes[1].mesh.vertices.empty()) {
+			Rml::Vertex const & under = meshes[0].mesh.vertices[0];
+			Rml::Vertex const & text = meshes[1].mesh.vertices[0];
+			Check(under.position.x == text.position.x + 2.0f && under.position.y == text.position.y + 3.0f,
+				"the shadow sits at its offset from the text");
+			Check(under.colour.red == 255 && under.colour.green == 0 && text.colour.green == 255,
+				"the shadow takes its own color and the text keeps the text color");
+		}
+
+		engine.GenerateString(context.GetRenderManager(), face, effects, "M", Rml::Vector2f(10.0f, 40.0f), white, 1.0f, shaping, meshes);
+		Check(meshes.size() == 2 && meshes[0].mesh.vertices.size() == meshes[1].mesh.vertices.size(),
+			"a second line adds to the same two layers");
+	}
+
+	context.UnloadDocument(document);
+	context.Update();
+}
+
+
 void Test_Raster_Font(void)
 {
 	char32_t const CYRILLIC_A = 0x0410;
@@ -4535,6 +4807,7 @@ void Test_Documents(void)
 	if (context != nullptr) {
 		Test_Effects_Documents(*context, render, system);
 		Test_Raster_Font();
+		Test_Font_Shadow(*context);
 		Test_Surface_Element(*context, render, system);
 		Test_Skirmish_Screen(*context, system);
 		Test_Scenario_Screen(*context, system);
@@ -4545,6 +4818,7 @@ void Test_Documents(void)
 		Test_Game_Options_Screen(*context, system);
 		Test_Message_Box_Screen(*context, system);
 		Test_Reconnect_Screen(*context, system);
+		Test_Diplomacy_Screen(*context, system);
 		Test_Sound_Screen(*context, system);
 		Test_Game_Controls_Screen(*context, system);
 		Test_Display_Screen(*context, system);
@@ -4638,6 +4912,67 @@ void Test_Missing_UI_Files(ShellFixtureType & fixture, MissingFileInterfaceClass
 }
 
 
+void Test_Button_Clicks(UIShellClass & shell, TestHostClass & host)
+{
+	for (float ratio : { 1.0f, 2.0f }) {
+		for (char const * kind : { "", "wide", "tall" }) {
+			for (int point = 0; point < 4; point++) {
+				std::printf("  button clicks: ratio %.0f, kind %s, point %d\n", ratio, *kind != '\0' ? kind : "standard", point);
+				UIVersionPresenterClass presenter({ "button clicks" });
+				std::unique_ptr<UIViewClass> view = UI_Version_View(presenter);
+				int passes = 0;
+				int clicks = host.Clicks;
+				PointType at {};
+				bool stable = false;
+				bool queued = false;
+				bool pressed = false;
+				UIResult result = shell.Run_Modal(*view, [&](void) {
+					passes++;
+					Rml::Element * button = Rml(*view).Document()->GetElementById("ok");
+					if (passes == 1) {
+						host.Rect.ScaleX = ratio;
+						host.Rect.ScaleY = ratio;
+						shell.On_Video_Change();
+						if (*kind != '\0') {
+							button->SetClass(kind, true);
+						}
+						shell.Tick();
+						Rml::Vector2f origin = button->GetAbsoluteOffset(Rml::BoxArea::Border);
+						Rml::Vector2f size = button->GetBox().GetSize(Rml::BoxArea::Border);
+						at = { (int)(origin.x + size.x * 0.5f), (int)std::ceil(origin.y) + 1 };
+						if (point == 1 || point == 3) {
+							at.Y = (int)(origin.y + size.y * 0.5f);
+						} else if (point == 2) {
+							at.Y = (int)(origin.y + size.y) - 1;
+						}
+						Press(shell, WINDOW_BUTTON_LEFT, at);
+						shell.Tick();
+						pressed = button->IsPseudoClassSet("active");
+						stable = button->GetAbsoluteOffset(Rml::BoxArea::Border) == origin
+							&& button->GetBox().GetSize(Rml::BoxArea::Border) == size;
+					} else if (passes == 2) {
+						if (point == 3) {
+							at.Y -= (int)(40.0f * ratio);
+						}
+						Release(shell, WINDOW_BUTTON_LEFT, at);
+						queued = presenter.Has_Pending();
+					}
+					return(passes >= 3);
+				});
+				Check(pressed && host.Clicks == clicks + 1, "a button press shows feedback and sounds once");
+				Check(stable, "pressing a button keeps its hit area in place across a frame");
+				Check(point == 3 ? !queued && result == UI_RESULT_SESSION_ENDED
+					: queued && result == UI_RESULT_ACCEPTED,
+					"releasing inside the original button activates it; dragging outside cancels");
+			}
+		}
+	}
+	host.Rect.ScaleX = 1.0f;
+	host.Rect.ScaleY = 1.0f;
+	shell.On_Video_Change();
+}
+
+
 void Test_Shell(void)
 {
 	auto files = std::make_unique<MissingFileInterfaceClass>();
@@ -4685,6 +5020,8 @@ void Test_Shell(void)
 		Check(host.Focuses == 1, "focus returns to the main window once");
 		Check(!shell.Screen_Shown() && shell.Modal() == nullptr, "the modal stack is empty after the close");
 	}
+
+	Test_Button_Clicks(shell, host);
 
 	{
 		UIVersionPresenterClass presenter({ "escape" });
@@ -5820,6 +6157,57 @@ void Test_Shell(void)
 		shell.Shutdown();
 	}
 
+	{
+		Check(shell.Init(), "the shell initializes for the diplomacy screen");
+
+		RecordingDiplomacyServiceClass service;
+		UIDiplomacyPresenterClass presenter(service);
+		presenter.State = Diplomacy_State(2, 0);
+		std::unique_ptr<UIViewClass> view = UI_Diplomacy_View(presenter);
+		Check(shell.Show_Modeless(*view), "the diplomacy screen shows beside the game");
+		shell.Tick();
+
+		Rml::ElementDocument * document = Rml(*view).Document();
+		Rml::Element * reveal = document->GetElementById("reveal");
+		Rml::Element * box = document->QuerySelector("#players .row:nth-child(5) .chat input");
+		Check(reveal != nullptr && box != nullptr, "the screen carries its frame and a send box");
+
+		if (reveal != nullptr && box != nullptr) {
+			PointType beside{ host.Rect.X + 4, host.Rect.Y + host.Rect.Height / 2 };
+			Check(reveal->GetAbsoluteOffset(Rml::BoxArea::Border).x > 4.0f, "the test point lies outside the frame");
+			Check(!Press(shell, WINDOW_BUTTON_LEFT, beside), "a click beside the screen goes to the map");
+			Release(shell, WINDOW_BUTTON_LEFT, beside);
+
+			PointType at = Element_Point(host, box);
+			Move(shell, at);
+			host.Down[VK_LBUTTON] = true;
+			Check(Press(shell, WINDOW_BUTTON_LEFT, at), "a click on a box stays with the screen");
+			host.Down[VK_LBUTTON] = false;
+			Release(shell, WINDOW_BUTTON_LEFT, at);
+			shell.Tick();
+			presenter.Drain();
+			Check(service.Calls == std::vector<std::string>{ "send 1 off" }, "the click asks for the change its row allows");
+
+			Key_Down(shell, VK_SPACE);
+			Key_Up(shell, VK_SPACE);
+			shell.Tick();
+			presenter.Drain();
+			Check(service.Calls.size() == 1, "space after the click does not click the box again");
+
+			Check(!Key_Down(shell, 'A'), "an ordinary key goes to the game");
+			Key_Up(shell, 'A');
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(320));
+			Check(Key_Down(shell, VK_TAB), "tab stays with the screen");
+			Key_Up(shell, VK_TAB);
+			presenter.Drain();
+			Check(presenter.Closed, "and asks to close it");
+		}
+
+		shell.Hide_Modeless(*view);
+		shell.Shutdown();
+	}
+
 	Check(shell.Init(), "the shell initializes again after a shutdown");
 	shell.Shutdown();
 
@@ -5845,6 +6233,7 @@ int main(void)
 	Test_Sound_Presenter();
 	Test_Map_Generator_Presenter();
 	Test_Reconnect_Presenter();
+	Test_Diplomacy_Presenter();
 	Test_Restate_Presenter();
 	Test_Strings();
 	Test_Documents();

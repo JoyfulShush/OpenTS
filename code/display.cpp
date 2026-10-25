@@ -546,7 +546,23 @@ bool DisplayClass::Passes_Proximity_Check(ObjectTypeClass const * object, Houses
 		return(true);
 	}
 
-	BuildingTypeClass const * building = (BuildingTypeClass const *)object;
+	return(Is_Anchored_Placement((BuildingTypeClass const *)object, Houses[house], trycell));
+}
+
+
+/// <summary>
+/// Reports whether a building placed with its top corner at the given cell would stand within
+/// its <c>Adjacent=</c> distance of the house's base. A wall may also join the house's walls,
+/// and an upgrade may be placed on a building of the house that accepts it.
+/// </summary>
+bool DisplayClass::Is_Anchored_Placement(BuildingTypeClass const * building, HouseClass const * house, Cell const & trycell)
+{
+	if (!building->PowersUpBuilding.empty()) {
+		ObjectClass const * host = Map.Cell_Object(trycell, Point2D(0, 0));
+		if (host != NULL && host->RTTI == RTTI_BUILDING && ((BuildingClass const *)host)->Can_Upgrade(building, house)) {
+			return(true);
+		}
+	}
 
 	int height = building->Height();
 	int width = building->Width();
@@ -584,7 +600,7 @@ bool DisplayClass::Passes_Proximity_Check(ObjectTypeClass const * object, Houses
 				//BG: Modified so only walls can be placed next to walls - buildings can't.
 				if (building->IsWall) {
 
-					if (cellptr->Owner == house) {
+					if (cellptr->Owner == house->HeapID) {
 						retval = true;
 						//break;
 					}
@@ -593,7 +609,7 @@ bool DisplayClass::Passes_Proximity_Check(ObjectTypeClass const * object, Houses
 				BuildingClass * newbase = cellptr->Cell_Building();
 
 				// we've found a building...
-				if (newbase != NULL && Is_Adjacency_Anchor(newbase, Houses[house])) {
+				if (newbase != NULL && Is_Adjacency_Anchor(newbase, house)) {
 					retval = true;
 					//break;
 				}
@@ -639,8 +655,16 @@ bool DisplayClass::Passes_Shroud_Check(ObjectTypeClass const * object, HousesTyp
 		return(true);
 	}
 
-	BuildingTypeClass const * building = (BuildingTypeClass const *)object;
+	return(Is_Unshrouded_Placement((BuildingTypeClass const *)object, Houses[house], trycell));
+}
 
+
+/// <summary>
+/// Reports whether a building placed with its top corner at the given cell would avoid the
+/// house's shroud. A building that lays its own tile may be placed into the shroud.
+/// </summary>
+bool DisplayClass::Is_Unshrouded_Placement(BuildingTypeClass const * building, HouseClass const * house, Cell const & trycell)
+{
 	int height = building->Height();
 	int width = building->Width();
 
@@ -652,7 +676,7 @@ bool DisplayClass::Passes_Shroud_Check(ObjectTypeClass const * object, HousesTyp
 			Coord coord = Coord(Cell(x, y));
 			coord.Z = Map.Get_Height_GL(coord);
 
-			if (Map.Is_Shrouded(coord)) {
+			if (Map.Is_Shrouded(coord, house)) {
 				if (building->ToTile == NULL) {
 					return(false);
 				}
@@ -2146,14 +2170,8 @@ void DisplayClass::Mouse_Left_Release(Coord const & coord, Cell const & cell, Ob
 	if (PendingObjectPtr) {
 
 		if (PendingObject->RTTI == RTTI_BUILDINGTYPE) {
-			ProximityCheck = Passes_Proximity_Check(PendingObject, PendingHouse, CursorSize, ZoneCell+ZoneOffset);
-		}
-
-		if (PendingObject->RTTI == RTTI_BUILDINGTYPE && object != NULL && object->RTTI == RTTI_BUILDING) {
-			BuildingClass *building = (BuildingClass *)object;
-			if (building->Can_Upgrade((const BuildingTypeClass *)PendingObject, PlayerPtr)) {
-				ProximityCheck = true;
-			}
+			ProximityCheck = Passes_Proximity_Check(PendingObject, PendingHouse, CursorSize, cell + ZoneOffset);
+			ShroudCheck = Passes_Shroud_Check(PendingObject, PendingHouse, CursorSize, cell + ZoneOffset);
 		}
 
 		/*
@@ -2188,7 +2206,7 @@ void DisplayClass::Mouse_Left_Release(Coord const & coord, Cell const & cell, Ob
 			**	Toggle the select state of the object.
 			*/
 			if (action == ACTION_TOGGLE_SELECT) {
-				if (!object || !CurrentObject.Count() || !CurrentObject[0]->Owner_HouseClass()->Is_Player_Control()) {
+				if (!object || !CurrentObject.Count() || !CurrentObject[0]->Owner_HouseClass()->Is_Player_Commanded()) {
 					action = ACTION_SELECT;
 				} else {
 					if (object->IsSelected) {
@@ -2331,7 +2349,7 @@ void Bandbox_Selection_Callback(ObjectClass *object)
 	HouseClass *house = object->Owner_HouseClass();
 	BuildingClass *bptr = object->RTTI == RTTI_BUILDING ? (BuildingClass *)object : NULL;
 
-	if (house != NULL && house->Is_Player_Control()) {
+	if (house != NULL && house->Is_Player_Commanded()) {
 		if (object->Class_Of()->IsSelectable) {
 			bool selectable = false;
 			if (bptr != NULL) {

@@ -62,6 +62,7 @@
 #include "theme.h"
 #include "timer.h"
 #include "tracker.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/uienginehost.h"
 #include "ui/uishell.h"
 #include "video.h"
@@ -182,6 +183,7 @@ bool InMainLoop = false;
 
 static void Finish_Decided_Game(void)
 {
+	UI_Diplomacy_Close();
 	Unlock_Scenario_Input();
 
 	if (Session.Type == GAME_INTERNET && !GameStatisticsPacketSent) {
@@ -302,6 +304,7 @@ bool Main_Loop(void)
 	*/
 	if (!Session.Play) {
 		if (SpecialDialog == SDLG_NONE && GameInFocus) {
+			UI_Diplomacy_Update();
 			UIShell.Tick();
 			Map.Input(input, x, y);
 			if (input) {
@@ -486,13 +489,6 @@ void Keyboard_Process(KeyNumType & input)
 			Queue_Options();
 		}
 
-		/*
-		**	Toggles the map zoom mode similarly to pressing the map button.
-		*/
-		if (plain == KN_TAB) {
-			Map.Zoom_Mode_Control();
-		}
-
 #ifdef _DEBUG
 		if (Debug_Flag) {
 			switch (int(input)) {
@@ -619,7 +615,7 @@ void Message_Input(KeyNumType &input)
 	**	message must be MAX_MESSAGE_LENGTH plus the size of "From: xxx (house)".
 	*/
 	if (Session.Type != GAME_NORMAL && Session.Type != GAME_SKIRMISH && input >= KN_F1 && input < (KN_F1 + Session.MaxPlayers) && !Session.Messages.Is_Edit()) {
-		if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+		if (Session.Is_Network_Game()) {
 			/*
 			**	For a network game:
 			**	F1-F7 = "To <name> (house):" (only allowed if we're not in ObiWan mode)
@@ -664,7 +660,7 @@ void Message_Input(KeyNumType &input)
 	**	Send a message
 	*/
 	if ((rc==3 || rc==4) && Session.Type != GAME_NORMAL && Session.Type != GAME_SKIRMISH) {
-		if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+		if (Session.Is_Network_Game()) {
 			if (rc==3) {
 				Chat_Send(Session.Messages.Get_Edit_Buf());
 			} else {

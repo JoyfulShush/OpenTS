@@ -134,6 +134,7 @@
 #include "loaddlg.h"
 #include "logic.h"
 #include "mainopt.h"
+#include "mapcapture.h"
 #include "misc.h"
 #include "mixfile.h"
 #include "mono.h"
@@ -182,6 +183,7 @@
 #include "tube.h"
 #include "tutorial.h"
 #include "ui/screens/campaign/uicampaign.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/screens/menu/uimenu.h"
 #include "ui/screens/version/uiversion.h"
 #include "ui/uienginehost.h"
@@ -257,8 +259,6 @@ static CampaignType Choose_Campaign(void);
 static void Init_Threads(void);
 void Draw_Version_Text(Surface * surface);
 void Version_Dialog(void);
-
-void Init_Random(void);
 
 #define ATTRACT_MODE_TIMEOUT	TIMER_MINUTE		// timeout for attract mode
 
@@ -429,7 +429,7 @@ int Init_Game(int , char * [])
 	/*
 	**	Play the startup animation.
 	*/
-	if (!Spawner_Is_Requested()) {
+	if (!Spawner_Is_Requested() && !MapCapture::Is_Requested()) {
 		if (Special.IsFromInstall == true) {
 			DebugString("Playing first time intro sequence.\n");
 			Play_Movie("EVA.VQA", THEME_NONE, false);
@@ -922,6 +922,11 @@ restart:
 	*/
 	if (!Debug_Map) {
 
+		if (MapCapture::Is_Requested()) {
+			MapCapture::Run();
+			return(false);
+		}
+
 		/*
 		**	Menu selection processing loop
 		*/
@@ -1204,6 +1209,8 @@ restart:
 	*/
 	Keyboard->Clear();
 	SaveManager.Reset_Multiplayer_Save_State();
+	EventClass::Reset_Announcements();
+	Session.Reset_Departures();
 
 	/*
 	**	Initialize the random number generator(s)
@@ -1300,7 +1307,7 @@ restart:
 				Ipx.Set_Timing(std::max<unsigned>(TIMER_SECOND, Ipx.Global_Response_Time() + 2), (unsigned int) -1, 10 * TIMER_SECOND);
 			}
 		}
-	} else if (Session.Play && (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET)) {
+	} else if (Session.Play && Session.Is_Network_Game()) {
 		Session.Reset_Network_Timing(Frame >= 0 ? static_cast<unsigned int>(Frame) : 0u);
 	}
 
@@ -1452,6 +1459,10 @@ bool Parse_Command_Line(int argc, char * argv[])
 		**	Print usage text only if requested.
 		*/
 		if (stricmp("/?", string) == 0 || stricmp("-?", string) == 0 || stricmp("-h", string) == 0 || stricmp("/h", string) == 0) {
+#ifdef _DEBUG
+			Debug_Init_Console();
+#endif
+
 			/*
 			**	Unrecognized command line parameter... Display usage
 			**	and then exit.
@@ -1519,6 +1530,16 @@ bool Parse_Command_Line(int argc, char * argv[])
 			continue;
 		}
 
+		if (strnicmp(string, "-CAPTUREMAP=", strlen("-CAPTUREMAP=")) == 0) {
+			MapCapture::Request_Map(&original[strlen("-CAPTUREMAP=")]);
+			continue;
+		}
+
+		if (strnicmp(string, "-CAPTUREOUT=", strlen("-CAPTUREOUT=")) == 0) {
+			MapCapture::Request_Output(&original[strlen("-CAPTUREOUT=")]);
+			continue;
+		}
+
 		// A client asking the game to launch what SPAWN.INI describes.
 		if (stricmp(string, "-SPAWN") == 0) {
 			Spawner_Request();
@@ -1551,14 +1572,6 @@ bool Parse_Command_Line(int argc, char * argv[])
 
 		if (isdigit((unsigned char)string[1])) {
 			sscanf(string, "-%dX%d", &Options.ScreenWidth, &Options.ScreenHeight);
-			continue;
-		}
-
-		/*
-		**	Set screen to 640x480 instead of 640x400
-		*/
-		if (strcmp(string, "-480") == 0) {
-			Options.ScreenHeight = 480;
 			continue;
 		}
 
@@ -1670,6 +1683,9 @@ bool Parse_Command_Line(int argc, char * argv[])
 						break;
 
 					default:
+#ifdef _DEBUG
+						Debug_Init_Console();
+#endif
 						puts(Fetch_String(TXT_INVALID));
 						return(false);
 				}
@@ -2934,7 +2950,7 @@ static void Select_Team_Members(int team)
 {
 	for (int i = 0; i < Technos.Count(); i++) {
 		TechnoClass * obj = Technos[i];
-		if (obj && !obj->IsInLimbo && obj->Group == team - 1 && obj->House->Is_Player_Control()) {
+		if (obj && !obj->IsInLimbo && obj->Group == team - 1 && obj->House->Is_Player_Commanded()) {
 			if (!obj->IsSelected) {
 				obj->Select();
 				AllowVoice = false;
@@ -2948,7 +2964,7 @@ static void Assign_Selection_To_Team(int team)
 {
 	for (int i = 0; i < Technos.Count(); i++) {
 		TechnoClass * obj = Technos[i];
-		if (obj && !obj->IsInLimbo && obj->House->Is_Player_Control()) {
+		if (obj && !obj->IsInLimbo && obj->House->Is_Player_Commanded()) {
 			if (obj->Group == team - 1) {
 				obj->Group = -1;
 			}
@@ -3451,6 +3467,36 @@ class CenterBaseCommandClass : public CommandClass
 };
 
 
+/// <summary>
+/// Queues a change of the local player's alliance with the given house when the player may
+/// change it. The change allies an enemy, or ends an alliance on both sides.
+/// </summary>
+/// <returns>bool; Was the change queued?</returns>
+bool Request_Alliance_Toggle(HouseClass const * house)
+{
+	if (PlayerPtr == NULL || house == NULL || !PlayerPtr->Can_Change_Alliance(house)) {
+		return(false);
+	}
+	OutList.push_back(EventClass(PlayerPtr->HeapID, EventClass::ALLY, house->HeapID));
+	return(true);
+}
+
+
+/// <summary>
+/// Queues a grant of shared control to the given house, or the withdrawal of one, when the
+/// local player may grant it control.
+/// </summary>
+/// <returns>bool; Was the change queued?</returns>
+bool Request_Control_Grant_Toggle(HouseClass const * house)
+{
+	if (PlayerPtr == NULL || house == NULL || !PlayerPtr->Can_Grant_Control(house)) {
+		return(false);
+	}
+	OutList.push_back(EventClass(PlayerPtr->HeapID, EventClass::GRANT_CONTROL, house->HeapID));
+	return(true);
+}
+
+
 class AllianceCommandClass : public CommandClass
 {
 	public:
@@ -3468,12 +3514,32 @@ class AllianceCommandClass : public CommandClass
 		}
 
 		virtual void Execute(void) const {
-			if (Session.Type != GAME_NORMAL && !Scen->Special.IsAllianceFixed && Session.Options.AlliesAllowed) {
-				if (CurrentObject.Count() && !PlayerPtr->IsDefeated) {
-					if (CurrentObject[0]->Owner_HouseClass() != PlayerPtr && CurrentObject[0]->Owner_HouseClass()->IsHuman) {
-						OutList.push_back(EventClass(PlayerPtr->HeapID, EventClass::ALLY, CurrentObject[0]->Owner()));
-					}
-				}
+			if (CurrentObject.Count()) {
+				Request_Alliance_Toggle(CurrentObject[0]->Owner_HouseClass());
+			}
+		}
+};
+
+
+class GrantControlCommandClass : public CommandClass
+{
+	public:
+		virtual char const * Get_Unique_Name(void) const {
+			return("GrantControl");
+		}
+		virtual char const * Get_Display_Name(void) const {
+			return(Fetch_String(TXT_GRANT_CONTROL));
+		}
+		virtual char const * Get_Category(void) const {
+			return(Fetch_String((TXT_CONTROL)));
+		}
+		virtual char const * Get_Description(void) const {
+			return(Fetch_String(TXT_GRANT_CONTROL_DESC));
+		}
+
+		virtual void Execute(void) const {
+			if (CurrentObject.Count()) {
+				Request_Control_Grant_Toggle(CurrentObject[0]->Owner_HouseClass());
 			}
 		}
 };
@@ -3601,24 +3667,24 @@ class CenterREventCommandClass : public CommandClass
 };
 
 
-class ToggleRadarCommandClass : public CommandClass
+class DiplomacyCommandClass : public CommandClass
 {
 	public:
 		virtual char const * Get_Unique_Name(void) const {
-			return("ToggleRadar");
+			return("Diplomacy");
 		}
 		virtual char const * Get_Display_Name(void) const {
-			return(Fetch_String(TXT_RADAR_TOGGLE));
+			return(Fetch_String(TXT_DIPLOMACY));
 		}
 		virtual char const * Get_Category(void) const {
 			return(Fetch_String((TXT_INTERFACE)));
 		}
 		virtual char const * Get_Description(void) const {
-			return(Fetch_String(TXT_RADAR_TOGGLE_DESC));
+			return(Fetch_String(TXT_DIPLOMACY_DESC));
 		}
 
 		virtual void Execute(void) const {
-			Map.Zoom_Mode_Control();
+			UI_Diplomacy_Toggle();
 		}
 };
 
@@ -4622,7 +4688,7 @@ class SelectSameTypeCommandClass : public CommandClass
 			SoughtTypes.clear();
 			for (int i = 0; i < CurrentObject.Count(); i++) {
 				ObjectClass * obj = CurrentObject[i];
-				if (!obj->Is_Techno() || !((TechnoClass *)obj)->House->Is_Player_Control()) {
+				if (!obj->Is_Techno() || !((TechnoClass *)obj)->House->Is_Player_Commanded()) {
 					continue;
 				}
 				SoughtTypes.insert(obj->TClass);
@@ -4655,7 +4721,7 @@ class SelectSameTypeCommandClass : public CommandClass
 		/// <remarks>SoughtTypes must hold the desired types before calling this routine.</remarks>
 		static void Select_Callback(ObjectClass * obj)
 		{
-			if (obj != NULL && obj->Is_Techno() && obj->IsDown && !obj->IsSelected && SoughtTypes.contains(obj->TClass) && ((TechnoClass *)obj)->House->Is_Player_Control()) {
+			if (obj != NULL && obj->Is_Techno() && obj->IsDown && !obj->IsSelected && SoughtTypes.contains(obj->TClass) && ((TechnoClass *)obj)->House->Is_Player_Commanded()) {
 				obj->Select();
 			}
 		}
@@ -4708,7 +4774,7 @@ void SelectionFilterClass::Execute(bool add_lower)
 			continue;
 		}
 		TechnoClass * techno = (TechnoClass *)obj;
-		if (!techno->House->Is_Player_Control()) {
+		if (!techno->House->Is_Player_Commanded()) {
 			continue;
 		}
 		int tier = Tier(techno);
@@ -4801,7 +4867,7 @@ SelectionFilterClass::TechnoList SelectionFilterClass::Resolve_Last_Full(void) c
 	TechnoList list;
 	for (TargetClass const & target : LastFull) {
 		TechnoClass * techno = target.As_Techno();
-		if (techno != NULL && techno->IsActive && !techno->IsInLimbo && techno->House->Is_Player_Control()) {
+		if (techno != NULL && techno->IsActive && !techno->IsInLimbo && techno->House->Is_Player_Commanded()) {
 			list.push_back(techno);
 		}
 	}
@@ -5363,7 +5429,7 @@ static void Init_Commands(void)
 
 	AllCommands.Add(new CenterREventCommandClass);
 
-	AllCommands.Add(new ToggleRadarCommandClass);
+	AllCommands.Add(new DiplomacyCommandClass);
 	AllCommands.Add(new TogglePowerCommandClass);
 	AllCommands.Add(new ToggleSellCommandClass);
 	AllCommands.Add(new ToggleRepairCommandClass);
@@ -5371,6 +5437,7 @@ static void Init_Commands(void)
 	AllCommands.Add(new SelectViewCommandClass);
 
 	AllCommands.Add(new AllianceCommandClass);
+	AllCommands.Add(new GrantControlCommandClass);
 
 	AllCommands.Add(new CenterBaseCommandClass);
 	AllCommands.Add(new CenterViewCommandClass);
@@ -5492,7 +5559,8 @@ static void Init_Commands(void)
 /// <summary>
 /// Binds the game commands to the keys named in KEYBOARD.INI.
 /// This routine throws the current key assignments away and rebuilds them from the
-/// player's keyboard file, matching each entry against a command's unique name.
+/// player's keyboard file, matching each entry against a command's unique name. A
+/// ToggleRadar entry, from before the radar's player list was retired, binds Diplomacy.
 /// </summary>
 /// <returns>bool; Was the keyboard file loaded?</returns>
 /// <remarks>The command list must already be built before calling this routine.</remarks>
@@ -5509,9 +5577,10 @@ bool Init_Hotkeys(void)
 			const char *entry = ini.Get_Entry("Hotkey", index);
 			int id = ini.Get_Int("Hotkey", entry, 0);
 			const CommandClass *command = NULL;
+			char const * name = (strcmp(entry, "ToggleRadar") == 0) ? "Diplomacy" : entry;
 
 			for (int cindex = 0; cindex < AllCommands.Count(); cindex++) {
-				if (strcmp(AllCommands[cindex]->Get_Unique_Name(), entry) == 0) {
+				if (strcmp(AllCommands[cindex]->Get_Unique_Name(), name) == 0) {
 					command = AllCommands[cindex];
 					break;
 				}
