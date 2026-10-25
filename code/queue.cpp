@@ -88,6 +88,7 @@
 #include "_tactica.h"
 #include "_vanim.h"
 #include "_warhead.h"
+#include "_ui.h"
 #include "_weapon.h"
 #include "_xmouse.h"
 #include "aircraft.h"
@@ -161,8 +162,10 @@
 #include "trigger.h"
 #include "trigtype.h"
 #include "tube.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/screens/reconnect/uireconnect.h"
 #include "ui/uienginehost.h"
+#include "ui/uishell.h"
 #include "unit.h"
 #include "unittype.h"
 #include "vanim.h"
@@ -284,6 +287,7 @@ static int LastExecutedFrame = -1;
 
 // How often a frame packet asks for an acknowledgement while a link is still unmeasured.
 constexpr int ROUND_TRIP_PROBE_FRAMES = 32;
+constexpr NetTiming::Milliseconds WAITED_ON_MINIMUM = 100;
 static int LastRoundTripProbeFrame = -ROUND_TRIP_PROBE_FRAMES;
 
 static std::array<unsigned int, static_cast<std::size_t>(NetPacket::DecodeError::COUNT)>
@@ -1189,6 +1193,9 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 	 */
 	bool stall_drawn = false;			/// true = the current stall has been recorded
 	int loop_count;						/// # of times through the wait loop
+	NetTiming::Milliseconds const wait_start = NetTiming::Default_Clock().Now();
+	NetTiming::Milliseconds wait_stamp = wait_start;
+	std::array<NetTiming::Milliseconds, NetTiming::MAX_TIMING_PLAYERS> waited_on = {};
 
 	//........................................................................
 	// Timing variables
@@ -1422,6 +1429,22 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 				break;
 			}
 
+			NetTiming::Milliseconds const now = NetTiming::Default_Clock().Now();
+			NetTiming::Milliseconds const waited = NetTiming::Elapsed_Milliseconds(wait_stamp, now);
+			wait_stamp = now;
+			if (frame_stall != -1) {
+				unsigned int const id = static_cast<unsigned int>(net->Connection_ID(frame_stall));
+				if (id < waited_on.size()) {
+					waited_on[id] += waited;
+				}
+			}
+			if (count_stall != -1 && count_stall != frame_stall) {
+				unsigned int const id = static_cast<unsigned int>(net->Connection_ID(count_stall));
+				if (id < waited_on.size()) {
+					waited_on[id] += waited;
+				}
+			}
+
 			/*
 			 * ..................................................................
 			 * Record (and optionally display) who's stalling the game.
@@ -1460,6 +1483,8 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 		//---------------------------------------------------------------------
 		Call_Back();
 		if (!first_time && SpecialDialog == SDLG_NONE && reconnect_dlg==0) {
+			UI_Diplomacy_Update();
+			UIShell.Tick();
 			Map.Input(input, x, y);
 			if (input)
 				Keyboard_Process(input);
@@ -1475,6 +1500,15 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 
 	if (!first_time && (int)timer > Session.WorstStallTicks) {
 		Session.WorstStallTicks = (int)timer;
+	}
+
+	// Short waits are the ordinary pacing between machines; only a hold-up long enough to notice
+	// counts against the players it waited on.
+	NetTiming::Milliseconds const wait_end = NetTiming::Default_Clock().Now();
+	if (!first_time && NetTiming::Milliseconds_Have_Elapsed(wait_start, wait_end, WAITED_ON_MINIMUM)) {
+		for (unsigned int id = 0; id < waited_on.size(); id++) {
+			Session.WaitedOn.Add(id, waited_on[id], wait_end);
+		}
 	}
 	if (reconnect_dlg) {
 		Close_Reconnect_Dialog();
@@ -2158,6 +2192,7 @@ static int Process_Reconnect_Dialog(CDTimerClass<SystemTimerClass> *timeout_time
 			Reconnect_Say(buf);
 		}
 
+		UI_Diplomacy_Close();
 		ReconnectBox.Show(Reconnect_Notice(their, num_conn, (int)(*timeout_timer / TIMER_SECOND)));
 		return(0);
 	}
@@ -2603,8 +2638,10 @@ static void Stop_Game(bool is_cancelled)
 		ConnectionLost = true;
 		if (!is_cancelled) Session.SawGameCompletion = true;
 		Session.OutOfSync = true;
-		Register_Game_End_Time();
-		Send_Statistics_Packet();
+		if (!GameStatisticsPacketSent) {
+			Register_Game_End_Time();
+			Send_Statistics_Packet();
+		}
 	}
 }	// end of Stop_Game
 
@@ -3377,6 +3414,7 @@ static int Execute_DoList(int max_houses, HousesType base_house,
 						}
 						if (Session.Type == GAME_INTERNET && !GameStatisticsPacketSent && PlayerPtr != NULL && PlayerPtr == quithptr) {
 							DebugString("Sending game results because I quit, but didn't see completion");
+							Register_Game_End_Time();
 							Send_Statistics_Packet();
 						}
 					}

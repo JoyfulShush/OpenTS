@@ -465,6 +465,7 @@ struct GameOptionsType {
 	bool		AutoDeployMCV;		// Every house's starting base unit deploys as the match begins.
 	bool		AttackNeutralUnits;	// A target scan considers a neutral house's objects.
 	bool		ScrapMetal;			// A wreck leaves the animations its type names in ScrapExplosion.
+	bool		SharedControl;		// A player may let an ally order their units.
 	char		ScenarioDescription [DESCRIP_MAX];	//Used on client machines only
 
 	bool Save(SaveStreamClass & stream);
@@ -649,6 +650,8 @@ class SessionClass
 		// Longest single wait for other players, in ticks. A report covers this interval and the previous one.
 		int			WorstStallTicks;
 		int			PreviousWorstStallTicks;
+		// Local only, for display: never saved, sent or used by the match.
+		NetTiming::WaitLedger WaitedOn;
 
 		/*
 		 * This is the largest MaxAhead the game has run at, since the value only ever grows.

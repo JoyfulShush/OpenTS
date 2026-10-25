@@ -1082,10 +1082,15 @@ BEGIN
     TXT_GAME_AUTO_SAVED     "Game auto-saved."
     TXT_SCENARIO_DATA_DAMAGED "Unable to read scenario %s: its map data is damaged."
     TXT_CONNECTION_QUALITY_STATUS "Connection quality target: %s."
-    TXT_CONNECTION_QUALITY_RUNG "%s (rung %u)"
     TXT_PLAYER_NUMBER       "Player %d"
     TXT_ILLEGAL_COMMAND     "%s sent an illegal command."
     TXT_SUPERWEAPON_TOOLTIP "{}\r\r{}"
+    TXT_GRANT_CONTROL       "Grant Control"
+    TXT_GRANT_CONTROL_DESC  "Lets the owner of the selected allied object command your units, or takes that back."
+    TXT_CONTROL_GRANTED     "%s lets %s command their units."
+    TXT_CONTROL_WITHDRAWN   "%s no longer lets %s command their units."
+    TXT_DIPLOMACY           "Diplomacy"
+    TXT_DIPLOMACY_DESC      "Opens or closes the panel of players, alliances, shared control, chat and connections."
 END
 
 #endif    // English (U.S.) resources

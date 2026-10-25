@@ -255,9 +255,15 @@ test('Every name a match shows passes through the session', () => {
 		'TXT_TO', 'TXT_CONNECTION_LOST', 'TXT_LEFT_GAME', 'TXT_PLAYER_DEFEATED', 'TXT_RECONNECTING_TO',
 		'TXT_HAS_ALLIED', 'TXT_AT_WAR', 'TXT_SPECIAL_WARNING', 'TXT_PLAYER_CHANGED_SPEED',
 		'TXT_PLAYER_CHANGED_LATENCY', 'TXT_CHAT_TAGGED', 'TXT_CHAT_TO_PLAYER', 'TXT_MOVIE_SKIP_ONE',
-		'TXT_RECONNECT_KICK_RECEIVED',
+		'TXT_RECONNECT_KICK_RECEIVED', 'TXT_CONTROL_GRANTED', 'TXT_CONTROL_WITHDRAWN',
 	];
 	const named = new RegExp(String.raw`\b(?:${naming.join('|')})\b`, 'g');
+
+	// A string handed to one of these is formatted inside it, so the helper's body is checked instead.
+	const formatters = [
+		['code/event.cpp', 'void EventClass::Announce_Setting_Change(int text) const'],
+	];
+	const handed = new RegExp(String.raw`\b(?:${formatters.map(([, signature]) => signature.match(/(\w+)\(/)[1]).join('|')})\(`);
 
 	// The lobby dialogs come before a match, and a launch file never opens them.
 	const lobby = new Set(['netdlg2.cpp', 'skirmish.cpp']);
@@ -272,6 +278,11 @@ test('Every name a match shows passes through the session', () => {
 				text.lastIndexOf('{', match.index),
 				text.lastIndexOf('}', match.index),
 			) + 1;
+
+			if (handed.test(text.slice(start, text.indexOf(';', match.index)))) {
+				formats++;
+				continue;
+			}
 
 			// A string fetched in one statement is formatted in a later one.
 			let end = text.indexOf(';', match.index);
@@ -291,9 +302,19 @@ test('Every name a match shows passes through the session', () => {
 	}
 	assert.ok(formats >= 17, `expected the names in every match message to be found, found ${formats}`);
 
+	for (const [path, signature] of formatters) {
+		const body = functionBody(source(path), signature);
+		assert.ok(
+			body.split(';').some((statement) => statement.includes('printf(') && shown.test(statement)),
+			`${signature} in ${path} formats a name that does not pass through the session`,
+		);
+	}
+
 	// These draw or keep a name without a string of their own.
 	const draws = [
-		['code/radar.cpp', 'void RadarClass::Draw_Names(void)'],
+		['code/ui/screens/diplomacy/uidiplomacydlg.cpp', 'UIDiplomacyRow Player_Row(HouseClass const * house, UIDiplomacyState const & state)'],
+		['code/ui/screens/diplomacy/uidiplomacydlg.cpp', 'UIDiplomacyRow Observer_Row(HouseClass const * house, UIDiplomacyState const & state)'],
+		['code/ui/screens/diplomacy/uidiplomacydlg.cpp', 'std::string Footer_Text(void)'],
 		['code/progress.cpp', 'void ProgressScreenClass::Set_Graphic_Data('],
 		['code/chat.cpp', 'void Chat_Show(HouseClass const * sender'],
 		['code/ipxmgr.cpp', 'void IPXManagerClass::Multiplayer_Debug_Print(int top)'],
@@ -510,9 +531,9 @@ test('A resume is judged before it is loaded, and the save answers for the rest'
 	], 'a network resume seats the players and opens the network before the save is read');
 
 	assertOrdered(functionBody(source('code/ui/screens/gameopt/uigameoptdlg.cpp'), 'void UI_Game_Options_State(UIGameOptionsState & state)'), [
-		'state.Internet = (Session.Type == GAME_INTERNET);',
+		'state.Solo = (Session.Type == GAME_NORMAL || Session.Type == GAME_SKIRMISH);',
 		'state.SaveEnabled = SaveManager.Is_Multiplayer_Saving_Allowed();',
-	], 'an internet game offers the synchronized save the options menu has always known');
+	], 'a network game offers the synchronized save in the options menu');
 
 	assertOrdered(functionBody(source('code/saveload.cpp'), 'bool Reconcile_Players(void)'), [
 		'stricmp(Session.Players[i]->Name, Houses[house]->IniName) == 0',
@@ -1481,7 +1502,7 @@ test('A repairing vehicle keeps its own deploy cursor', () => {
 		action,
 		[
 			'bool deploying = object == this && (action == ACTION_SELF || action == ACTION_NO_DEPLOY);',
-			'if (Combat_Damage() < 0 && House->Is_Player_Control()) {',
+			'if (Combat_Damage() < 0 && House->Is_Player_Commanded()) {',
 			'} else if ( object->RTTI != RTTI_BUILDING && !deploying ) {',
 		],
 		'the repair rules run after the deploy rules and must not overwrite them',

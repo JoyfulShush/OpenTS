@@ -342,6 +342,7 @@ HouseClass::HouseClass(HouseTypeClass const * type) :
 	EMPDest(0,0),
 	NukeDest(0,0),
 	Allies(),
+	ControlGrantees(),
 	DamageTime(TICKS_PER_MINUTE * Rule->DamageDelay),
 	TeamTime(1),
 	TriggerTime(0),
@@ -2274,6 +2275,7 @@ void HouseClass::Make_Enemy(HouseClass * house)
 
 		if (house != NULL && Is_Ally(house)) {
 			Allies.Clear(house);
+			End_Control_Grants(house);
 
 			if (ScenarioInit) {
 				Control.Allies.Clear(house);
@@ -3301,6 +3303,10 @@ void HouseClass::MPlayer_Defeated(void)
 	**	Set the defeat flag for this house
 	*/
 	IsDefeated = true;
+
+	for (int index = 0; index < Houses.Count(); index++) {
+		End_Control_Grants(Houses[index]);
+	}
 
 	/*
 	**	If this is a computer controlled house, then all computer controlled
@@ -5849,7 +5855,7 @@ void HouseClass::All_To_Hunt(void)
  * HISTORY:                                                                                    *
  *   09/23/1996 JLB : Created.                                                                 *
  *=============================================================================================*/
-bool HouseClass::Is_Allowed_To_Ally(HouseClass * house) const
+bool HouseClass::Is_Allowed_To_Ally(HouseClass const * house) const
 {
 	if (house != NULL) {
 		/*
@@ -6400,23 +6406,13 @@ void HouseClass::Tracking_Active_Add(TechnoClass * techno, bool bycapture)
 }
 
 
-/***********************************************************************************************
- * HouseClass::As_Pointer -- Converts a house number into a house object pointer.              *
- *                                                                                             *
- *    Use this routine to convert a house number into the house pointer that it represents.    *
- *    A simple index into the Houses template array is not sufficient, since the array order   *
- *    is arbitrary. An actual scan through the house object is required in order to find the   *
- *    house object desired.                                                                    *
- *                                                                                             *
- * INPUT:   house -- The house type number to look up.                                         *
- *                                                                                             *
- * OUTPUT:  Returns with a pointer to the house object that the house number represents.       *
- *                                                                                             *
- * WARNINGS:   none                                                                            *
- *                                                                                             *
- * HISTORY:                                                                                    *
- *   01/23/1995 JLB : Created.                                                                 *
- *=============================================================================================*/
+/// <summary>
+/// Fetches the house playing a country, or the house at the start position a spawn house
+/// names.
+/// </summary>
+/// <param name="house">The country or spawn house to look up.</param>
+/// <returns>The first house playing that country, or NULL when nobody does. An observer plays
+/// no country, so it never receives what a scenario or trigger gives one.</returns>
 HouseClass * House_From_HousesType(HousesType house)
 {
 	int spawn_waypoint = Spawn_House_Waypoint(house);
@@ -6426,7 +6422,7 @@ HouseClass * House_From_HousesType(HousesType house)
 
 	for (int index = 0; index < Houses.Count(); index++) {
 		HouseClass * housep = Houses[index];
-		if (housep->Class->House == house) {
+		if (housep->Class->House == house && !housep->IsObserver) {
 			return(housep);
 		}
 	}
@@ -6534,6 +6530,7 @@ void HouseClass::Compute_CRC(CRCEngine & crc) const
 	crc(WhoLastHurtMe);
 	crc(Enemy);
 	Allies.Compute_CRC(crc);
+	ControlGrantees.Compute_CRC(crc);
 	Base.Compute_CRC(crc);
 }
 
@@ -6636,16 +6633,27 @@ void HouseClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(Capacity);
 	stream.Serialize(Weed);
 	stream.Serialize(field_1BC);
-	// AircraftTotals -- internet game tallies owned by this house, built by the constructor.
-	// InfantryTotals
-	// UnitTotals
-	// BuildingTotals
-	// DestroyedAircraft
-	// DestroyedInfantry
-	// DestroyedUnits
-	// DestroyedBuildings
-	// CapturedBuildings
-	// TotalCrates
+
+	// The constructor builds the tallies only in internet games, and a load restores the saved
+	// game type before any house, so a record with tallies loads only into a house with them.
+	bool tallies = AircraftTotals != NULL;
+	bool saved_tallies = tallies;
+	stream.Serialize(saved_tallies);
+	if (stream.Is_Loading() && saved_tallies != tallies) {
+		stream.Fail();
+	} else if (tallies) {
+		stream.Serialize(*AircraftTotals);
+		stream.Serialize(*InfantryTotals);
+		stream.Serialize(*UnitTotals);
+		stream.Serialize(*BuildingTotals);
+		stream.Serialize(*DestroyedAircraft);
+		stream.Serialize(*DestroyedInfantry);
+		stream.Serialize(*DestroyedUnits);
+		stream.Serialize(*DestroyedBuildings);
+		stream.Serialize(*CapturedBuildings);
+		stream.Serialize(*TotalCrates);
+	}
+
 	stream.Serialize(AircraftFactories);
 	stream.Serialize(InfantryFactories);
 	stream.Serialize(UnitFactories);
@@ -6709,6 +6717,7 @@ void HouseClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(EMPDest);
 	stream.Serialize(NukeDest);
 	stream.Serialize(Allies);
+	stream.Serialize(ControlGrantees);
 	stream.Serialize(DamageTime);
 	stream.Serialize(TeamTime);
 	stream.Serialize(TriggerTime);
@@ -8825,6 +8834,10 @@ void HouseClass::AI_Takeover(void)
 	IsPlayerControl = false;
 	IQ = Rule->MaxIQ;
 
+	for (int i = 0; i < Houses.Count(); i++) {
+		End_Control_Grants(Houses[i]);
+	}
+
 	/*
 	 * Disown and disband any factories this house controls.
 	 */
@@ -9294,6 +9307,90 @@ bool HouseClass::Can_See_Target(ObjectClass const * object) const
 		return(true);
 	}
 	return(!Map.Is_Shrouded(object->Center_Coord(), this));
+}
+
+
+/// <summary>
+/// Reports whether this house may grant shared control to the given house, or take back a
+/// grant it made: the match must be a network game with shared control on, neither house may
+/// be defeated or an observer, and the other house must be another human player allied with
+/// this one in both directions.
+/// </summary>
+bool HouseClass::Can_Grant_Control(HouseClass const * house) const
+{
+	return(Session.Is_Network_Game() && Session.Options.SharedControl && !IsDefeated && !IsObserver
+		&& house != NULL && house != this && house->IsHuman && !house->IsDefeated && !house->IsObserver
+		&& Is_Ally(house) && house->Is_Ally(this));
+}
+
+
+/// <summary>
+/// Reports whether the given house may order this house's units. A house always commands its
+/// own; another house needs a standing grant from this one, a mutual alliance, and must be
+/// neither defeated nor an observer.
+/// </summary>
+bool HouseClass::Grants_Control_To(HouseClass const * house) const
+{
+	if (house == this) {
+		return(true);
+	}
+	return(house != NULL && Session.Options.SharedControl && ControlGrantees[house] && Is_Ally(house) && house->Is_Ally(this)
+		&& !house->IsDefeated && !house->IsObserver);
+}
+
+
+/// <summary>
+/// Reports whether the local player may select and order this house's units, either as their
+/// own or under a shared control grant.
+/// </summary>
+bool HouseClass::Is_Player_Commanded(void) const
+{
+	return(Is_Player_Control() || (PlayerPtr != NULL && Grants_Control_To(PlayerPtr)));
+}
+
+
+/// <summary>
+/// Grants the given house control of this house's units, or takes back an existing grant.
+/// Returns whether the house holds a grant afterward.
+/// </summary>
+bool HouseClass::Toggle_Control_Grant(HouseClass const * house)
+{
+	if (ControlGrantees[house]) {
+		ControlGrantees.Clear(house);
+	} else {
+		ControlGrantees.Set(house);
+	}
+	return(ControlGrantees[house]);
+}
+
+
+/// <summary>
+/// Withdraws any shared control grant between this house and the given house, in both
+/// directions.
+/// </summary>
+void HouseClass::End_Control_Grants(HouseClass * house)
+{
+	if (house == NULL) {
+		return;
+	}
+	ControlGrantees.Clear(house);
+	house->ControlGrantees.Clear(this);
+}
+
+
+/// <summary>
+/// Returns the number of units and buildings this house has destroyed, counting every owner.
+/// </summary>
+int HouseClass::Total_Kills(void) const
+{
+	int kills = 0;
+	for (int i = 0; i < ARRAY_SIZE(UnitsKilled); i++) {
+		kills += UnitsKilled[i];
+	}
+	for (int i = 0; i < ARRAY_SIZE(BuildingsKilled); i++) {
+		kills += BuildingsKilled[i];
+	}
+	return(kills);
 }
 
 

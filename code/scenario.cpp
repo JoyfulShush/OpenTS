@@ -89,6 +89,7 @@
 #include "ccrand.h"
 #include "cctooltip.h"
 #include "cell.h"
+#include "chat.h"
 #include "conquer.h"
 #include "convert.h"
 #include "crc.h"
@@ -164,6 +165,7 @@
 #include "trim.h"
 #include "tube.h"
 #include "tutorial.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/uishell.h"
 #include "unit.h"
 #include "unittype.h"
@@ -1060,6 +1062,7 @@ void Clear_Scenario(void)
 {
 	Stop_All_Sound_Effects();
 	Sync_Recorder_Disarm();
+	UI_Diplomacy_Close();
 
 	int index;
 
@@ -1080,6 +1083,7 @@ void Clear_Scenario(void)
 	}
 	Delete_All_Objects();
 	Reset_Selection_Filters();
+	Chat_Reset_Filters();
 	for (index = 0; index < IsometricTileTypes.Count(); index++) {
 		AbstractTypes.Add(IsometricTileTypes[index]);
 	}
