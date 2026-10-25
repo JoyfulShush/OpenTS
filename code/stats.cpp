@@ -45,6 +45,7 @@ int WestwoodOnline_PortNumber = 1234;
 #include "building.h"
 #include "builtype.h"
 #include "dbgprint.h"
+#include "gamedirs.h"
 #include "getcpu.h"
 #include "globals.h"
 #include "goptions.h"
@@ -54,13 +55,20 @@ int WestwoodOnline_PortNumber = 1234;
 #include "misc.h"
 #include "netshare.h"
 #include "packet.h"
+#include "rawfile.h"
+#include "savemgr.h"
+#include "savestream.h"
+#include "scenario.h"
 #include "session.h"
 #include "stats.h"
 #include "stimer.h"
 #include "timer.h"
 #include "unit.h"
 #include "unittype.h"
+#include "utracker.h"
 #include "win.h"
+
+#include <vector>
 
 #define FIELD_GAME_ID							"IDNO"
 #define FIELD_START_CREDITS						"CRED"
@@ -72,6 +80,7 @@ int WestwoodOnline_PortNumber = 1234;
 #define FIELD_START_UNIT_COUNT					"UNIT"
 #define FIELD_TECH_LEVEL						"TECH"
 #define FIELD_SCENARIO							"SCEN"
+#define FIELD_MAP_HASH							"HASH"
 #define FIELD_START_TIME						"TIME"
 #define FIELD_GAME_DURATION						"DURA"
 #define FIELD_FRAME_RATE						"AFPS"
@@ -113,6 +122,7 @@ bool								ConnectionLost;			//Flag that the connection to the other player was
 bool								GameTimerInUse = false;
 BasicTimerClass<SystemTimerClass>	GameTimer;
 int								GameEndTime;
+static int							ResumedGameTime = -1;	// Elapsed time a load left for the next match start.
 void								*PacketLater = NULL;
 bool								GameStatisticsPacketSent;
 
@@ -127,17 +137,50 @@ int WestwoodOnline_GameID = 0;
 int WestwoodOnline_GameSKU_TS = 0;
 int WestwoodOnline_GameSKU_FS = 0;
 int WestwoodOnline_GameSKU_WDT = 0;
-char WestwoodOnline_LoginName[36];
 char WestwoodOnline_UserName[16];
 char WestwoodOnline_Clan1_Players[136];
 char WestwoodOnline_Clan2_Players[136];
 int g_PingsSent;
 int g_PingsReceived;
 
-int Get_Unit_Count(int *buf, int count);
+StatisticsSettingsType StatisticsSettings;
 
-#define _GET_UNIT_TOTALS(tracker, tracker2) (void*) player->tracker2->Get_All_Totals(), Get_Unit_Count(player->tracker->Get_All_Totals(),player->tracker->Get_Unit_Count())*4
-#define GET_UNIT_TOTALS(tracker) (void*) player->tracker->Get_All_Totals(), Get_Unit_Count(player->tracker->Get_All_Totals(),player->tracker->Get_Unit_Count())*4
+static int Get_Unit_Count(int const *buf, int count);
+
+
+// The counts go out as big-endian 32-bit values, without the zero entries at the end.
+static void Add_Counts_Field(PacketClass & stats, char const * id, int const * counts, int count)
+{
+	int used = Get_Unit_Count(counts, count);
+	std::vector<unsigned int> data(used);
+	for (int index = 0; index < used; index++) {
+		data[index] = htonl((unsigned int)counts[index]);
+	}
+	stats.Add_Field(id, (void *)data.data(), used * (int)sizeof(unsigned int));
+}
+
+
+static void Add_Counts_Field(PacketClass & stats, char const * id, UnitTrackerClass & tracker)
+{
+	Add_Counts_Field(stats, id, tracker.Get_All_Totals(), tracker.Get_Unit_Count());
+}
+
+
+// Replaces any earlier file, so a client never reads the tail of an older match.
+static void Write_Statistics_File(void const * packet, int size)
+{
+	// The file object keeps the name pointer, so the path must outlive it.
+	std::string const path = User_File_Write_Name("stats.dmp");
+	RawFileClass file(path.c_str());
+	bool const written = file.Open(FileClass::WRITE) && file.Write(packet, size) == size;
+	file.Close();
+
+	if (written) {
+		DebugString("Wrote %d bytes of game results to %s\n", size, path.c_str());
+	} else {
+		DebugString("The game results could not be written to %s\n", path.c_str());
+	}
+}
 
 /***********************************************************************************************
  * Send_Statistics_To_Server -- sends internet game statistics to the Westeood server          *
@@ -193,12 +236,12 @@ void Send_Statistics_Packet(void)
 	static char field_player_ip[5]					= { "IPA?" };
 	static char field_player_clan[5]				= { "CID?" };
 	static char field_player_lost_connection[5]		= { "LCN?" };
+	static char field_player_start[5]				= { "BSP?" };
 
 	DebugString("Building game results.  SawCompletion=%d\n", Session.SawGameCompletion);
 
-	// The identifier that tells one match from another, assigned by whoever set the match
-	// up. Nobody does, at present.
-	stats.Add_Field(FIELD_GAME_ID, (unsigned int)WestwoodOnline_GameID);
+	// The identifier that tells one match from another, assigned by whoever set the match up.
+	stats.Add_Field(FIELD_GAME_ID, (unsigned int)StatisticsSettings.MatchID);
 
 	/*
 	**	Product SKU
@@ -280,7 +323,18 @@ void Send_Statistics_Packet(void)
 	/*
 	**	Scenario
 	*/
-	stats.Add_Field(FIELD_SCENARIO, Session.ScenarioFileName);
+	if (!StatisticsSettings.MapName.empty()) {
+		stats.Add_Field(FIELD_SCENARIO, StatisticsSettings.MapName.c_str());
+	} else {
+		stats.Add_Field(FIELD_SCENARIO, Scen->Description);
+	}
+
+	/*
+	 * The map's identity in the client's map list.
+	 */
+	if (!StatisticsSettings.MapHash.empty()) {
+		stats.Add_Field(FIELD_MAP_HASH, StatisticsSettings.MapHash.c_str());
+	}
 
 	/*
 	 * Pings sent
@@ -341,8 +395,7 @@ void Send_Statistics_Packet(void)
 	**
 	*/
 	for (i = 0; i < playercount; i++) {
-		HouseClass *ptr = houses[i];
-		if (strcmpi(ptr->IniName, WestwoodOnline_LoginName) == 0) {
+		if (houses[i] == PlayerPtr) {
 			statsid = i;
 			break;
 		}
@@ -500,6 +553,12 @@ void Send_Statistics_Packet(void)
 		stats.Add_Field (field_player_color, (unsigned int) (player->Scheme));
 
 		/*
+		 * Player start position.
+		 */
+		field_player_start[3] = '0' + (char)house;
+		stats.Add_Field (field_player_start, (int)player->SpawnWaypoint);
+
+		/*
 		**	Player end credits.
 		*/
 		field_player_credits[3] = '0' + (char)house;
@@ -513,106 +572,81 @@ void Send_Statistics_Packet(void)
 		field_player_planes_bought[3] = '0' + (char)house;
 		field_player_buildings_bought[3] = '0' + (char)house;
 
-		player->InfantryTotals->To_Network_Format();
-		player->UnitTotals->To_Network_Format();
-		player->AircraftTotals->To_Network_Format();
-		player->BuildingTotals->To_Network_Format();
-
-		stats.Add_Field (field_player_infantry_bought, GET_UNIT_TOTALS(InfantryTotals));
-		stats.Add_Field (field_player_units_bought, GET_UNIT_TOTALS(UnitTotals));
-		stats.Add_Field (field_player_planes_bought, GET_UNIT_TOTALS(AircraftTotals));
-		stats.Add_Field (field_player_buildings_bought, GET_UNIT_TOTALS(BuildingTotals));
-
-		player->InfantryTotals->To_PC_Format();
-		player->UnitTotals->To_PC_Format();
-		player->AircraftTotals->To_PC_Format();
-		player->BuildingTotals->To_PC_Format();
-
-		/*
-		**	Clear out the counts and use the space to count up the current number of units/buildings
-		*/
-		player->InfantryTotals->Clear_Unit_Total();
-		player->AircraftTotals->Clear_Unit_Total();
-		player->UnitTotals->Clear_Unit_Total();
-		player->BuildingTotals->Clear_Unit_Total();
+		Add_Counts_Field(stats, field_player_infantry_bought, *player->InfantryTotals);
+		Add_Counts_Field(stats, field_player_units_bought, *player->UnitTotals);
+		Add_Counts_Field(stats, field_player_planes_bought, *player->AircraftTotals);
+		Add_Counts_Field(stats, field_player_buildings_bought, *player->BuildingTotals);
 
 		/*
 		**	Number of units remaining to player
 		*/
+		std::vector<int> units_left(UnitTypes.Count());
+		std::vector<int> infantry_left(InfantryTypes.Count());
+		std::vector<int> aircraft_left(AircraftTypes.Count());
+		std::vector<int> buildings_left(BuildingTypes.Count());
+
 		for (index = 0; index < Units.Count(); index++) {
 			UnitClass const * unit = Units[index];
 			if (player == unit->House) {
-				player->UnitTotals->Increment_Unit_Total (unit->Class->HeapID);
+				units_left[unit->Class->HeapID]++;
 			}
 		}
 
 		for (index = 0; index < Infantry.Count(); index++) {
 			InfantryClass const * infantry = Infantry[index];
 			if (player == infantry->House && !infantry->Class->IsCivilian) {
-				player->InfantryTotals->Increment_Unit_Total (infantry->Class->HeapID);
+				infantry_left[infantry->Class->HeapID]++;
 			}
 		}
 
 		for (index = 0; index < Aircraft.Count(); index++) {
 			AircraftClass const * aircraft = Aircraft[index];
 			if (player == aircraft->House) {
-				player->AircraftTotals->Increment_Unit_Total (aircraft->Class->HeapID);
+				aircraft_left[aircraft->Class->HeapID]++;
 			}
 		}
 
 		for (index = 0; index < Buildings.Count(); index++) {
 			BuildingClass const * building = Buildings[index];
 			if (player == building->House) {
-				player->BuildingTotals->Increment_Unit_Total (building->Class->HeapID);
+				buildings_left[building->Class->HeapID]++;
 			}
 		}
-
-		player->InfantryTotals->To_Network_Format();
-		player->UnitTotals->To_Network_Format();
-		player->AircraftTotals->To_Network_Format();
-		player->BuildingTotals->To_Network_Format();
 
 		field_player_infantry_left[3] = '0' + (char)house;
 		field_player_units_left[3] = '0' + (char)house;
 		field_player_planes_left[3] = '0' + (char)house;
 		field_player_buildings_left[3] = '0' + (char)house;
 
-		stats.Add_Field (field_player_infantry_left, GET_UNIT_TOTALS(InfantryTotals));
-		stats.Add_Field (field_player_units_left,GET_UNIT_TOTALS(UnitTotals));
-		stats.Add_Field (field_player_planes_left, GET_UNIT_TOTALS(AircraftTotals));
-		stats.Add_Field (field_player_buildings_left, GET_UNIT_TOTALS(BuildingTotals));
+		Add_Counts_Field(stats, field_player_infantry_left, infantry_left.data(), (int)infantry_left.size());
+		Add_Counts_Field(stats, field_player_units_left, units_left.data(), (int)units_left.size());
+		Add_Counts_Field(stats, field_player_planes_left, aircraft_left.data(), (int)aircraft_left.size());
+		Add_Counts_Field(stats, field_player_buildings_left, buildings_left.data(), (int)buildings_left.size());
 
 		/*
 		**	Number of enemy units/buildings of each type destroyed.
 		*/
-		player->DestroyedInfantry->To_Network_Format();
-		player->DestroyedUnits->To_Network_Format();
-		player->DestroyedAircraft->To_Network_Format();
-		player->DestroyedBuildings->To_Network_Format();
-
 		field_player_infantry_killed[3] = '0' + (char)house;
 		field_player_units_killed[3] = '0' + (char)house;
 		field_player_planes_killed[3] = '0' + (char)house;
 		field_player_buildings_killed[3] = '0' + (char)house;
 
-		stats.Add_Field (field_player_infantry_killed, _GET_UNIT_TOTALS(DestroyedInfantry, InfantryTotals));
-		stats.Add_Field (field_player_units_killed,_GET_UNIT_TOTALS(DestroyedUnits, UnitTotals));
-		stats.Add_Field (field_player_planes_killed, _GET_UNIT_TOTALS(DestroyedAircraft, AircraftTotals));
-		stats.Add_Field (field_player_buildings_killed, _GET_UNIT_TOTALS(DestroyedBuildings, BuildingTotals));
+		Add_Counts_Field(stats, field_player_infantry_killed, *player->DestroyedInfantry);
+		Add_Counts_Field(stats, field_player_units_killed, *player->DestroyedUnits);
+		Add_Counts_Field(stats, field_player_planes_killed, *player->DestroyedAircraft);
+		Add_Counts_Field(stats, field_player_buildings_killed, *player->DestroyedBuildings);
 
 		/*
 		**	Number and type of enemy buildings captured
 		*/
 		field_player_buildings_captured[3] = '0' + (char)house;
-		player->CapturedBuildings->To_Network_Format();
-		stats.Add_Field (field_player_buildings_captured, GET_UNIT_TOTALS(CapturedBuildings));
+		Add_Counts_Field(stats, field_player_buildings_captured, *player->CapturedBuildings);
 
 		/*
 		**	Number of crates discovered and their contents
 		*/
 		field_player_crates_found[3] = '0' + (char)house;
-		player->TotalCrates->To_Network_Format();
-		stats.Add_Field (field_player_crates_found, GET_UNIT_TOTALS(TotalCrates));
+		Add_Counts_Field(stats, field_player_crates_found, *player->TotalCrates);
 
 		/*
 		**	Amount of tiberium turned into credits
@@ -626,16 +660,14 @@ void Send_Statistics_Packet(void)
 	*/
 	packet = stats.Create_Comms_Packet(packet_size);
 
-	// The results server went with the online client that knew its address, and none has
-	// replaced it, so the packet is built for its fields' sake alone.
-	DebugString("Built a %d byte game results packet with no server to send it to.\n", packet_size);
-
-	/*
-	**	Save it to disk as well so I can see it
-	*/
-//	RawFileClass anotherfile ("packet.net");
-//	anotherfile.Write(packet, packet_size);
-//DebugString( "Wrote out packet.net\n" );
+	// The header holds the size in 16 bits, so a larger packet could not be read back.
+	if (packet_size > 0xFFFF) {
+		DebugString("The %d byte game results packet is too large to write.\n", packet_size);
+	} else if (StatisticsSettings.IsWritten && PlayerPtr != NULL && !PlayerPtr->IsObserver) {
+		Write_Statistics_File(packet, packet_size);
+	} else {
+		DebugString("Built a %d byte game results packet that nothing asked to be written.\n", packet_size);
+	}
 
 	/*
 	**	Tidy up
@@ -657,7 +689,7 @@ void Send_Statistics_Packet(void)
 /// <param name="count">The number of entries held in the tracker totals.</param>
 /// <returns>Returns with the entry count up to and including the last non-zero total.
 /// Zero is returned if the tracker recorded nothing at all.</returns>
-int Get_Unit_Count(int *buf, int count)
+static int Get_Unit_Count(int const *buf, int count)
 {
 	int n = 0;
 	for (int i = 0; i < count; i++) {
@@ -670,13 +702,13 @@ int Get_Unit_Count(int *buf, int count)
 
 
 /// <summary>
-/// Starts the game duration timer.
-/// This routine is called as the game begins so that the statistics gathering code has a
-/// running clock to measure the game against.
+/// Starts the game duration timer as the game begins. A match resumed from a save starts from
+/// the time the save recorded.
 /// </summary>
 void Register_Game_Start_Time(void)
 {
-	GameTimer = 0;
+	GameTimer = ResumedGameTime >= 0 ? ResumedGameTime : 0;
+	ResumedGameTime = -1;
 	GameTimerInUse = true;
 }
 
@@ -690,4 +722,24 @@ void Register_Game_End_Time(void)
 {
 	GameEndTime = GameTimer;
 	GameTimerInUse = false;
+}
+
+
+/// <summary>
+/// Saves or restores how long the match has run, so that a resumed match reports its whole
+/// duration. A load in place of a running match sets the timer at once; any other load of an
+/// internet game hands the time to the next Register_Game_Start_Time.
+/// </summary>
+void Serialize_Game_Time(SaveStreamClass & stream)
+{
+	int elapsed = GameTimerInUse ? (int)GameTimer : 0;
+	stream.Serialize(elapsed);
+
+	if (stream.Is_Loading() && !stream.Was_Error()) {
+		if (SaveManager.Multiplayer_Load_Is_In_Progress()) {
+			GameTimer = elapsed;
+		} else if (Session.Type == GAME_INTERNET) {
+			ResumedGameTime = elapsed;
+		}
+	}
 }

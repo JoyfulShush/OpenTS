@@ -35,6 +35,7 @@
 #include "savever.h"
 #include "scenario.h"
 #include "session.h"
+#include "stats.h"
 #include "stimer.h"
 
 #include <algorithm>
@@ -228,6 +229,7 @@ static void Spawner_Bind_Options(void)
 	Session.Options.AutoDeployMCV = SpawnConfig.AutoDeployMCV;
 	Session.Options.AttackNeutralUnits = SpawnConfig.AttackNeutralUnits;
 	Session.Options.ScrapMetal = SpawnConfig.ScrapMetal;
+	Session.Options.SharedControl = SpawnConfig.SharedControl;
 
 	// AutoSurrender=no hands a departing player's base to the computer.
 	Session.Options.AITakeover = !SpawnConfig.AutoSurrender;
@@ -257,6 +259,18 @@ static void Spawner_Bind_Presentation(void)
 	Session.LoadScreenX = SpawnConfig.CustomLoadScreenX;
 	Session.LoadScreenY = SpawnConfig.CustomLoadScreenY;
 	std::snprintf(Session.DifficultyName, sizeof(Session.DifficultyName), "%s", SpawnConfig.DifficultyName.c_str());
+}
+
+
+/// <summary>
+/// Hands the match statistics file what the launch file names for it.
+/// </summary>
+static void Spawner_Bind_Statistics(void)
+{
+	StatisticsSettings.IsWritten = SpawnConfig.WriteStatistics;
+	StatisticsSettings.MatchID = SpawnConfig.GameID;
+	StatisticsSettings.MapHash = SpawnConfig.MapHash;
+	StatisticsSettings.MapName = SpawnConfig.MapName;
 }
 
 
@@ -528,6 +542,7 @@ bool Spawner_Prepare(bool & gameloaded)
 
 	Spawner_Bind_Autosave();
 	Spawner_Bind_Presentation();
+	Spawner_Bind_Statistics();
 
 	// Every kind of launch uses this speed, so it is checked first.
 	if (SpawnConfig.GameSpeed < 0 || SpawnConfig.GameSpeed >= OptionsClass::MAX_SPEED_SETTING) {

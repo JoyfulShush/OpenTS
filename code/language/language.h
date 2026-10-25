@@ -878,8 +878,8 @@
 #define TXT_GAME_AUTO_SAVED             1121
 #define TXT_SCENARIO_DATA_DAMAGED       1122
 #define TXT_CONNECTION_QUALITY_STATUS   1123
-#define TXT_CONNECTION_QUALITY_RUNG     1124
 #define TXT_PLAYER_NUMBER               1125
+#define TXT_ILLEGAL_COMMAND             1126
 #define IDC_LADDER_TYPE                 1043
 #define IDC_LADDER_LOCATION             1044
 #define IDC_FINDGAME_LOCATION           1046
@@ -1166,6 +1166,12 @@
 #define IDC_DESYNC_QUIT                 1713
 #define IDC_EDGE_SCROLL                 1714
 #define TXT_SUPERWEAPON_TOOLTIP			1715
+#define TXT_GRANT_CONTROL               1716
+#define TXT_GRANT_CONTROL_DESC          1717
+#define TXT_CONTROL_GRANTED             1718
+#define TXT_CONTROL_WITHDRAWN           1719
+#define TXT_DIPLOMACY                   1720
+#define TXT_DIPLOMACY_DESC              1721
 
 // Next default values for new objects
 //

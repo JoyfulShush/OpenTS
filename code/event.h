@@ -111,6 +111,7 @@ class EventClass
 			LATENCYFUDGE,
 			NETWORK_REPORT,
 			ABANDON_COUNT,
+			GRANT_CONTROL,		// Grant or withdraw shared control of the sender's units.
 
 			LAST_EVENT,			// one past the last event
 		};
@@ -273,8 +274,51 @@ class EventClass
 		EventClass(int index, AnimType anim, HousesType owner, Coord const & coord);
 		EventClass(int index, unsigned char type, void *ptr, unsigned int size);
 
+		// Why a received event was refused; each value has a log name in event.cpp.
+		enum class RejectReason : unsigned int {
+			InvalidType,
+			InvalidOrigin,
+			MissingOrigin,
+			InvalidAllyHouse,
+			InvalidAnimationType,
+			InvalidAnimationOwner,
+			InvalidProductionSelector,
+			InvalidSuperWeapon,
+			InvalidMission,
+			InvalidGameSpeed,
+			InvalidRemovedHouse,
+			InvalidLatencyFudge,
+			UnauthorizedSubject,
+			UnauthorizedTiming,
+			InvalidTimingArithmetic,
+			InvalidTimingValues,
+			UnschedulableTiming,
+			InvalidNetworkReport,
+			InvalidAbandonCount,
+			UnsentEvent,
+			LiveRemoval,
+			PlacementNotBuilding,
+			PlacementOffMap,
+			PlacementTooFar,
+			PlacementShrouded,
+			ProductionNotAllowed,
+			SaleNotAllowed,
+			RepairNotAllowed,
+			PowerToggleNotAllowed,
+			WallNotOwned,
+			MissionNotAllowed,
+			TargetHidden,
+			SuperWeaponOutOfRange,
+			AllianceNotAllowed,
+			InvalidGrantHouse,
+			ControlGrantNotAllowed,
+			Count,
+		};
+
 		// Process the event.
 		void Execute(void);
+
+		static void Reset_Announcements(void);
 
 		int operator == (EventClass & q) {
 			return(memcmp(this, &q, sizeof(q)) == 0);
@@ -282,5 +326,51 @@ class EventClass
 
 		static unsigned char EventLength[LAST_EVENT];
 		static char const * EventNames[LAST_EVENT];
+
+	private:
+		// What the sender must hold over the object an event commands.
+		enum class SubjectRule {
+			NONE,
+			OWNER,
+			COMMANDER,	// ownership or a shared control grant
+		};
+
+		bool Is_Admitted(void) const;
+		void Reject(RejectReason reason, int detail) const;
+		TechnoClass * Subject(SubjectRule & rule) const;
+		void Announce_Setting_Change(int text) const;
+
+		void Execute_POWER(void);
+		void Execute_ARCHIVE(void);
+		void Execute_ALLY(void);
+		void Execute_DESTRUCT(void);
+		void Execute_SPECIAL(void);
+		void Execute_REPAIR(void);
+		void Execute_SELL(void);
+		void Execute_SELLCELL(void);
+		void Execute_ANIMATION(void);
+		void Execute_PLACE(void);
+		void Execute_PRODUCE(void);
+		void Execute_SUSPEND(void);
+		void Execute_ABANDON(void);
+		void Execute_ABANDON_COUNT(void);
+		void Execute_PRIMARY(void);
+		void Execute_MEGAMISSION(void);
+		void Execute_IDLE(void);
+		void Execute_DEPLOY(void);
+		void Execute_SCATTER(void);
+		void Execute_SPECIAL_PLACE(void);
+		void Execute_EXIT(void);
+		void Execute_OPTIONS(void);
+		void Execute_GAMESPEED(void);
+		void Execute_RESPONSE_TIME(void);
+		void Execute_SAVEGAME(void);
+		void Execute_ADDPLAYER(void);
+		void Execute_REMOVEPLAYER(void);
+		void Execute_LATENCYFUDGE(void);
+		void Execute_TIMING(void);
+		void Execute_PROCESS_TIME(void);
+		void Execute_NETWORK_REPORT(void);
+		void Execute_GRANT_CONTROL(void);
 };
 #pragma pack(pop)

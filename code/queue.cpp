@@ -88,6 +88,7 @@
 #include "_tactica.h"
 #include "_vanim.h"
 #include "_warhead.h"
+#include "_ui.h"
 #include "_weapon.h"
 #include "_xmouse.h"
 #include "aircraft.h"
@@ -128,7 +129,6 @@
 #include "netdlg.h"
 #include "netglobal.h"
 #include "netpacket.h"
-#include "netsemantic.h"
 #include "netshare.h"
 #include "nettiming.h"
 #include "opents_build.h"
@@ -162,8 +162,10 @@
 #include "trigger.h"
 #include "trigtype.h"
 #include "tube.h"
+#include "ui/screens/diplomacy/uidiplomacy.h"
 #include "ui/screens/reconnect/uireconnect.h"
 #include "ui/uienginehost.h"
+#include "ui/uishell.h"
 #include "unit.h"
 #include "unittype.h"
 #include "vanim.h"
@@ -285,6 +287,7 @@ static int LastExecutedFrame = -1;
 
 // How often a frame packet asks for an acknowledgement while a link is still unmeasured.
 constexpr int ROUND_TRIP_PROBE_FRAMES = 32;
+constexpr NetTiming::Milliseconds WAITED_ON_MINIMUM = 100;
 static int LastRoundTripProbeFrame = -ROUND_TRIP_PROBE_FRAMES;
 
 static std::array<unsigned int, static_cast<std::size_t>(NetPacket::DecodeError::COUNT)>
@@ -502,7 +505,7 @@ bool Queue_Exit(void)
 void Queue_AI(void)
 {
 	if (Frame >= 0 && Session.CommProtocol == COMM_PROTOCOL_MULTI_E_COMP
-		&& (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET)) {
+		&& Session.Is_Network_Game()) {
 		Session.Advance_Network_Timing(static_cast<unsigned int>(Frame));
 	}
 
@@ -1190,6 +1193,9 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 	 */
 	bool stall_drawn = false;			/// true = the current stall has been recorded
 	int loop_count;						/// # of times through the wait loop
+	NetTiming::Milliseconds const wait_start = NetTiming::Default_Clock().Now();
+	NetTiming::Milliseconds wait_stamp = wait_start;
+	std::array<NetTiming::Milliseconds, NetTiming::MAX_TIMING_PLAYERS> waited_on = {};
 
 	//........................................................................
 	// Timing variables
@@ -1423,6 +1429,22 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 				break;
 			}
 
+			NetTiming::Milliseconds const now = NetTiming::Default_Clock().Now();
+			NetTiming::Milliseconds const waited = NetTiming::Elapsed_Milliseconds(wait_stamp, now);
+			wait_stamp = now;
+			if (frame_stall != -1) {
+				unsigned int const id = static_cast<unsigned int>(net->Connection_ID(frame_stall));
+				if (id < waited_on.size()) {
+					waited_on[id] += waited;
+				}
+			}
+			if (count_stall != -1 && count_stall != frame_stall) {
+				unsigned int const id = static_cast<unsigned int>(net->Connection_ID(count_stall));
+				if (id < waited_on.size()) {
+					waited_on[id] += waited;
+				}
+			}
+
 			/*
 			 * ..................................................................
 			 * Record (and optionally display) who's stalling the game.
@@ -1461,6 +1483,8 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 		//---------------------------------------------------------------------
 		Call_Back();
 		if (!first_time && SpecialDialog == SDLG_NONE && reconnect_dlg==0) {
+			UI_Diplomacy_Update();
+			UIShell.Tick();
 			Map.Input(input, x, y);
 			if (input)
 				Keyboard_Process(input);
@@ -1476,6 +1500,15 @@ static RetcodeType Wait_For_Players(int first_time, ConnManClass *net,
 
 	if (!first_time && (int)timer > Session.WorstStallTicks) {
 		Session.WorstStallTicks = (int)timer;
+	}
+
+	// Short waits are the ordinary pacing between machines; only a hold-up long enough to notice
+	// counts against the players it waited on.
+	NetTiming::Milliseconds const wait_end = NetTiming::Default_Clock().Now();
+	if (!first_time && NetTiming::Milliseconds_Have_Elapsed(wait_start, wait_end, WAITED_ON_MINIMUM)) {
+		for (unsigned int id = 0; id < waited_on.size(); id++) {
+			Session.WaitedOn.Add(id, waited_on[id], wait_end);
+		}
 	}
 	if (reconnect_dlg) {
 		Close_Reconnect_Dialog();
@@ -2131,7 +2164,7 @@ static int Process_Reconnect_Dialog(CDTimerClass<SystemTimerClass> *timeout_time
 					oldest_index = i;
 				}
 			}
-			if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+			if (Session.Is_Network_Game()) {
 				int const oldest_id = Ipx.Connection_ID(oldest_index);
 				sprintf(buf, Fetch_String(TXT_RECONNECTING_TO), Session.Shown_Name(oldest_id, Ipx.Connection_Name(oldest_id)).c_str());
 			} else {
@@ -2159,6 +2192,7 @@ static int Process_Reconnect_Dialog(CDTimerClass<SystemTimerClass> *timeout_time
 			Reconnect_Say(buf);
 		}
 
+		UI_Diplomacy_Close();
 		ReconnectBox.Show(Reconnect_Notice(their, num_conn, (int)(*timeout_timer / TIMER_SECOND)));
 		return(0);
 	}
@@ -2404,7 +2438,7 @@ bool Cast_Kick_Vote(int kicker, int kickee)
 	Session.KickVoteWho[kickee][votes] = kicker;
 	Session.KickVoteCount[kickee]++;
 
-	if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+	if (Session.Is_Network_Game()) {
 		DebugString("Player %s votes to kick player %s from the game\n",
 			kicker_player->Name, kickee_player->Name);
 		snprintf(buffer, sizeof(buffer), Fetch_String(TXT_RECONNECT_KICK_RECEIVED),
@@ -2531,7 +2565,7 @@ static int Handle_Timeout(ConnManClass *net, FrameSyncStruct *their)
 	//------------------------------------------------------------------------
 	// For network, destroy the oldest connection
 	//------------------------------------------------------------------------
-	if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+	if (Session.Is_Network_Game()) {
 		j = 0x7fffffff;
 		oldest_index = 0;
 		for (i = 0; i < net->Num_Connections(); i++) {
@@ -2561,7 +2595,7 @@ static int Handle_Timeout(ConnManClass *net, FrameSyncStruct *their)
 				their[i].sent = their[i+1].sent;
 				their[i].recv = their[i+1].recv;
 			}
-			if (Session.Type == GAME_IPX || Session.Type == GAME_INTERNET) {
+			if (Session.Is_Network_Game()) {
 				Destroy_Connection(id,1);
 			}
 		}
@@ -2604,8 +2638,10 @@ static void Stop_Game(bool is_cancelled)
 		ConnectionLost = true;
 		if (!is_cancelled) Session.SawGameCompletion = true;
 		Session.OutOfSync = true;
-		Register_Game_End_Time();
-		Send_Statistics_Packet();
+		if (!GameStatisticsPacketSent) {
+			Register_Game_End_Time();
+			Send_Statistics_Packet();
+		}
 	}
 }	// end of Stop_Game
 
@@ -3214,7 +3250,7 @@ static int Execute_DoList(int max_houses, HousesType base_house,
 			// The identifier arrived over the network, so it is bounded before it
 			// reaches the heap or the out-of-sync flags.
 			//..................................................................
-			if (!NetSemantic::Index_Is_Valid(DoList[j].ID, Houses.Count())
+			if (DoList[j].ID < 0 || DoList[j].ID >= Houses.Count()
 				|| DoList[j].ID >= MAX_PLAYERS
 				|| Sync_Is_Out_Of_Sync(DoList[j].ID)) {
 				continue;
@@ -3245,7 +3281,7 @@ static int Execute_DoList(int max_houses, HousesType base_house,
 
 			Report_Out_Of_Sync(mismatches, mismatch_count, CRC, ARRAY_SIZE(CRC));
 
-			if (net == NULL || (Session.Type != GAME_IPX && Session.Type != GAME_INTERNET)) {
+			if (net == NULL || !Session.Is_Network_Game()) {
 
 				// A recording has nobody to decide with, so it keeps the plain box.
 				Session.Suspended++;
@@ -3378,6 +3414,7 @@ static int Execute_DoList(int max_houses, HousesType base_house,
 						}
 						if (Session.Type == GAME_INTERNET && !GameStatisticsPacketSent && PlayerPtr != NULL && PlayerPtr == quithptr) {
 							DebugString("Sending game results because I quit, but didn't see completion");
+							Register_Game_End_Time();
 							Send_Statistics_Packet();
 						}
 					}
@@ -3401,8 +3438,7 @@ static int Execute_DoList(int max_houses, HousesType base_house,
 					//	for that player.  The HousesType for this event is the
 					// connection ID.
 					//............................................................
-						if ((Session.Type == GAME_IPX ||
-							Session.Type == GAME_INTERNET) && net) {
+						if (Session.Is_Network_Game() && net) {
 							index = net->Connection_Index (house);
 							if (index != -1) {
 								for (k = index; k < net->Num_Connections() - 1; k++) {

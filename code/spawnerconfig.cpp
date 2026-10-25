@@ -256,6 +256,7 @@ int SpawnerConfigClass::Session_Identity_CRC(void) const
 	crc(Firestorm);
 	crc(AttackNeutralUnits);
 	crc(ScrapMetal);
+	crc(SharedControl);
 	crc(CoachMode);
 	crc(PlayMoviesInMultiplayer);
 
@@ -506,9 +507,14 @@ void SpawnerConfigClass::Read_INI(INIClass const & ini)
 	AutoSurrender = ini.Get_Bool(SETTINGS, "AutoSurrender", AutoSurrender);
 	AttackNeutralUnits = ini.Get_Bool(SETTINGS, "AttackNeutralUnits", AttackNeutralUnits);
 	ScrapMetal = ini.Get_Bool(SETTINGS, "ScrapMetal", ScrapMetal);
+	SharedControl = ini.Get_Bool(SETTINGS, "SharedControl", SharedControl);
 	PlayMoviesInMultiplayer = ini.Get_Bool(SETTINGS, "PlayMoviesInMultiplayer", PlayMoviesInMultiplayer);
 	CustomLoadScreen = Read_Text(ini, SETTINGS, "CustomLoadScreen", CustomLoadScreen);
 	DifficultyName = Read_Text(ini, SETTINGS, "DifficultyName", DifficultyName);
+
+	WriteStatistics = ini.Get_Bool(SETTINGS, "WriteStatistics", WriteStatistics);
+	GameID = ini.Get_Int(SETTINGS, "GameID", GameID);
+	MapHash = Read_Text(ini, SETTINGS, "MapHash", MapHash);
 
 	std::string position = Read_Text(ini, SETTINGS, "CustomLoadScreenPos", "");
 	if (!position.empty()) {

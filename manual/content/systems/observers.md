@@ -31,13 +31,13 @@ related:
 
 A client seats an observer by listing the seat under `[IsSpectator]` in [the launch file](/formats/spawn-ini/#who-is-playing). The observer watches from the first frame and never plays. The menu lobbies cannot seat an observer.
 
-Each observer still gets a house. The house uses the country the launch file gives the seat, so the sidebar art and the EVA voice follow that country. It starts defeated and receives no start position, construction vehicle or starting units. The observer's view opens on the start position of a randomly chosen playing house, or on the center of the map when no house has one.
+Each observer still gets a house. The house uses the country the launch file gives the seat, so the sidebar art and the EVA voice follow that country. It starts defeated and receives no start position, construction vehicle or starting units. A scenario object, trigger or team owned by the observer's country never goes to the observer: it goes to a player of that country, or to nobody when only observers chose it. The observer's view opens on the start position of a randomly chosen playing house, or on the center of the map when no house has one.
 
 An observer's house holds no alliances. The launch file's alliance entries for the seat are ignored, and so are other seats' entries that name it. No house can ally with it during play, and it cannot ally with another house.
 
 Because the house starts defeated, it never counts among the houses or people still playing when the game decides whether the match is over. It cannot surrender.
 
-An observer does not appear on the [score screen](/systems/multiplayer-score-screen/), in the radar pane's name and kill list, or in the statistics report.
+An observer does not appear on the [score screen](/systems/multiplayer-score-screen/) or in the [match statistics file](/formats/stats-dmp/), which an observer's machine does not write. The [diplomacy panel](/systems/diplomacy/) lists observers apart from the players.
 
 An observer's house is still an observer after a [saved game](/formats/save-games/) is loaded. A launch file that resumes a network game's save must mark the same seats as watching, or the game refuses to load the save.
 
@@ -81,7 +81,7 @@ With coach mode, defeat leaves the player's view and chat as they were:
 - Hidden enemy objects and enemy decorations stay hidden.
 - Team and private messages stay open, so the player can keep talking to their allies.
 
-With or without coach mode, a defeated player keeps their row on the score screen, in the radar pane's name list and in the statistics report.
+With or without coach mode, a defeated player keeps their row on the score screen, in the radar pane's name list and in the [match statistics file](/formats/stats-dmp/).
 
 ## When the match ends
 

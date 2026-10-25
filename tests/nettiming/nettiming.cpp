@@ -941,6 +941,37 @@ namespace
 	}
 
 
+	void Test_Wait_Ledger(void)
+	{
+		using namespace NetTiming;
+
+		WaitLedger ledger;
+		Expect_Equal("a new ledger has no waits", ledger.Recent(1, 5000), 0u);
+
+		ledger.Add(1, 300, 10000);
+		ledger.Add(1, 200, 10999);
+		ledger.Add(2, 50, 10500);
+		Expect_Equal("waits in one second add up", ledger.Recent(1, 11000), 500u);
+		Expect_Equal("players are kept apart", ledger.Recent(2, 11000), 50u);
+
+		ledger.Add(1, 400, 25000);
+		Expect_Equal("waits across seconds add up", ledger.Recent(1, 25000), 900u);
+		Expect_Equal("a wait still counts in the last second of the window", ledger.Recent(1, 39999), 900u);
+		Expect_Equal("a wait leaves the window after thirty seconds", ledger.Recent(1, 40000), 400u);
+		Expect_Equal("the newest wait leaves last", ledger.Recent(1, 55000), 0u);
+
+		ledger.Add(1, 100, 70000);
+		Expect_Equal("a reused bucket drops its old second", ledger.Recent(1, 70000), 100u);
+
+		ledger.Add(MAX_TIMING_PLAYERS, 100, 70000);
+		ledger.Add(static_cast<unsigned int>(-1), 100, 70000);
+		Expect_Equal("an out-of-range player reads as no wait", ledger.Recent(MAX_TIMING_PLAYERS, 70000), 0u);
+
+		ledger.Reset();
+		Expect_Equal("reset clears every player", ledger.Recent(1, 70000) + ledger.Recent(2, 70000), 0u);
+	}
+
+
 	void Test_Master_Handoff_State(void)
 	{
 		using namespace NetTiming;
@@ -1297,6 +1328,25 @@ namespace
 		Expect("worsening does not retag frame information", unchanged_frame_info);
 	}
 
+
+	void Test_Timing_Event_Values(void)
+	{
+		using namespace NetTiming;
+
+		Expect("the resolved master may send timing events", Timing_Authority_Is_Valid(2, 2));
+		Expect("a guest may not send timing events", !Timing_Authority_Is_Valid(3, 2));
+		Expect("legacy response time accepts its minimum", Response_Time_Is_Valid(2, 2, 0, false));
+		Expect("legacy response time preserves its byte range", Response_Time_Is_Valid(255, 2, 0, false));
+		Expect("compressed response time accepts two aligned periods", Response_Time_Is_Valid(6, 2, 3, true));
+		Expect("compressed response time rejects one period", !Response_Time_Is_Valid(3, 2, 3, true));
+		Expect("compressed response time rejects misalignment", !Response_Time_Is_Valid(7, 2, 3, true));
+		Expect("compressed response time enforces the scheduling cap", !Response_Time_Is_Valid(255, 2, 3, true));
+		Expect("timing values accept a balanced setting", Timing_Values_Are_Valid(60, 9, 3));
+		Expect("timing values reject zero desired FPS", !Timing_Values_Are_Valid(0, 9, 3));
+		Expect("timing values reject an unaligned horizon", !Timing_Values_Are_Valid(60, 10, 3));
+		Expect("timing values reject a horizon above the cap", !Timing_Values_Are_Valid(60, 251, 10));
+	}
+
 }
 
 
@@ -1323,10 +1373,12 @@ int main(void)
 	Test_Hysteresis_And_Cooldown();
 	Test_Stale_And_Long_Term_Recovery();
 	Test_Stall_Feedback();
+	Test_Wait_Ledger();
 	Test_Master_Handoff_State();
 	Test_Staged_Decrease();
 	Test_Transition_Sequences();
 	Test_Recorded_Transitions();
+	Test_Timing_Event_Values();
 
 	if (Failures != 0) {
 		std::cerr << Failures << " network timing checks failed\n";

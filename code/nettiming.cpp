@@ -380,6 +380,48 @@ namespace NetTiming
 	}
 
 
+	void WaitLedger::Reset(void)
+	{
+		Buckets = {};
+	}
+
+
+	/// <summary>Records a wait on the player at the given time; an out-of-range player is ignored.</summary>
+	void WaitLedger::Add(unsigned int player, Milliseconds waited, Milliseconds now)
+	{
+		if (player >= Buckets.size() || waited == 0) {
+			return;
+		}
+
+		Milliseconds const second = now / 1000;
+		Bucket & bucket = Buckets[player][second % WAIT_WINDOW_SECONDS];
+		if (!bucket.Used || bucket.Second != second) {
+			bucket = {};
+			bucket.Used = true;
+			bucket.Second = second;
+		}
+		bucket.Waited += waited;
+	}
+
+
+	/// <summary>Returns the time waited on the player in the whole seconds of the window ending at the given time.</summary>
+	Milliseconds WaitLedger::Recent(unsigned int player, Milliseconds now) const
+	{
+		if (player >= Buckets.size()) {
+			return(0);
+		}
+
+		Milliseconds const second = now / 1000;
+		Milliseconds total = 0;
+		for (Bucket const & bucket : Buckets[player]) {
+			if (bucket.Used && second - bucket.Second < WAIT_WINDOW_SECONDS) {
+				total += bucket.Waited;
+			}
+		}
+		return(total);
+	}
+
+
 	/// <summary>The network frame rate for a game speed, 0 fastest to 6 slowest; others get 60.</summary>
 	unsigned int Game_Speed_Frame_Rate(int game_speed)
 	{
@@ -694,5 +736,38 @@ namespace NetTiming
 	bool Event_Is_Due(int event_frame, bool is_executed, int frame)
 	{
 		return(!is_executed && event_frame <= frame);
+	}
+
+
+	/// <summary>Checks that a timing event came from the resolved master.</summary>
+	bool Timing_Authority_Is_Valid(int sender, int master)
+	{
+		return(master >= 0 && sender == master);
+	}
+
+
+	/// <summary>Validates legacy propagation delay for its negotiated protocol.</summary>
+	bool Response_Time_Is_Valid(unsigned int delay, unsigned int minimum_delay, unsigned int frame_send_rate, bool compressed)
+	{
+		if (delay < minimum_delay) {
+			return(false);
+		}
+		if (!compressed) {
+			return(true);
+		}
+		return(frame_send_rate >= 1 && frame_send_rate <= 10 && delay >= 2 * frame_send_rate
+			&& delay <= MAXIMUM_MAX_AHEAD && delay % frame_send_rate == 0);
+	}
+
+
+	/// <summary>Checks synchronized frame-rate and scheduling bounds.</summary>
+	bool Timing_Values_Are_Valid(unsigned int desired_frame_rate, unsigned int max_ahead, unsigned int frame_send_rate)
+	{
+		if (desired_frame_rate == 0 || desired_frame_rate > 60 || frame_send_rate == 0 || frame_send_rate > 10) {
+			return(false);
+		}
+
+		unsigned int const minimum_max_ahead = frame_send_rate == 1 ? 4 : 3 * frame_send_rate;
+		return(max_ahead >= minimum_max_ahead && max_ahead <= MAXIMUM_MAX_AHEAD && max_ahead % frame_send_rate == 0);
 	}
 }

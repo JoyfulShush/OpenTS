@@ -525,11 +525,11 @@ registered_commands:
     source: code/init.cpp
     class: CenterREventCommandClass
     guard: null
-- id: ToggleRadar
-  route_id: toggleradar
+- id: Diplomacy
+  route_id: diplomacy
   kind: registered
-  title: Radar Toggle
-  description: Toggle radar display mode on / off.
+  title: Diplomacy
+  description: Opens or closes the panel of players, alliances, shared control, chat and connections.
   category: Interface
   audience: player
   availability:
@@ -538,7 +538,7 @@ registered_commands:
     - debug
   _provenance:
     source: code/init.cpp
-    class: ToggleRadarCommandClass
+    class: DiplomacyCommandClass
     guard: null
 - id: TogglePower
   route_id: togglepower
@@ -614,6 +614,21 @@ registered_commands:
   _provenance:
     source: code/init.cpp
     class: AllianceCommandClass
+    guard: null
+- id: GrantControl
+  route_id: grantcontrol
+  kind: registered
+  title: Grant Control
+  description: Lets the owner of the selected allied object command your units, or takes that back.
+  category: Control
+  audience: player
+  availability:
+    builds:
+    - release
+    - debug
+  _provenance:
+    source: code/init.cpp
+    class: GrantControlCommandClass
     guard: null
 - id: CenterBase
   route_id: centerbase
@@ -1806,19 +1821,6 @@ fixed_controls:
   _provenance:
     source: code/mainloop.cpp
     guard: null
-- id: fixed:map-zoom
-  route_id: fixed-map-zoom
-  kind: fixed
-  title: Map zoom
-  description: Toggles the tactical map zoom mode.
-  audience: player
-  availability: *id001
-  bindings:
-  - Tab
-  context: In-game
-  _provenance:
-    source: code/mainloop.cpp
-    guard: null
 - id: fixed:multiplayer-message
   route_id: fixed-multiplayer-message
   kind: fixed
@@ -2280,6 +2282,39 @@ launch_options:
   _provenance:
     source: code/init.cpp
     guard: null
+- id: launch:capture-map
+  route_id: capture-map
+  kind: launch
+  title: Map capture
+  description: Draws the map named as a PNG picture and exits, without showing a window, a console or
+    a dialog. Give the picture's file with -CAPTUREOUT=; without it the game exits at once. The picture
+    covers the map's LocalSize area as the game clamps it, 48 pixels per column and 24 pixels per row
+    plus 108, drawn as the scenario starts, with no shroud and no interface. A campaign mission keeps
+    every house's objects; a multiplayer map keeps only Neutral and Special objects and places no starting
+    units. A map is a campaign mission when [Basic] MultiplayerOnly is not set and [Basic] Player names
+    a house in its [Houses] section other than Neutral or Special. Firestorm is enabled whenever it is
+    installed. The game exits with code 0 once the picture is written. It exits with code 1 when the map
+    is missing or does not load, or the file cannot be written, and writes the reason to the debug log
+    and to the console it was started from. A crash also exits with code 1 and leaves its crash report
+    as usual.
+  audience: developer
+  availability: *id001
+  syntax: -CAPTUREMAP=<map>
+  _provenance:
+    source: code/init.cpp
+    guard: null
+- id: launch:capture-output
+  route_id: capture-output
+  kind: launch
+  title: Map capture file
+  description: Names the PNG file a -CAPTUREMAP= capture writes, replacing any file already there. A relative
+    path is taken from the game's own folder. The folder must exist.
+  audience: developer
+  availability: *id001
+  syntax: -CAPTUREOUT=<path>
+  _provenance:
+    source: code/init.cpp
+    guard: null
 - id: launch:tournament-time
   route_id: tournament-time
   kind: launch
@@ -2332,18 +2367,6 @@ launch_options:
   audience: player
   availability: *id001
   syntax: -<width>X<height>
-  _provenance:
-    source: code/init.cpp
-    guard: null
-- id: launch:height-480
-  route_id: height-480
-  kind: launch
-  title: 480-pixel width
-  description: Sets the initial screen width to 480 pixels and leaves the height alone; the resolution
-    branch claims the argument before the case named after it is reached.
-  audience: player
-  availability: *id001
-  syntax: '-480'
   _provenance:
     source: code/init.cpp
     guard: null

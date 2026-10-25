@@ -13,6 +13,10 @@
 
 #pragma once
 
+#include <string>
+
+class SaveStreamClass;
+
 /*************************************************************
 **	Internet specific externs
 */
@@ -30,13 +34,23 @@ extern int WestwoodOnline_GameID;
 extern int WestwoodOnline_GameSKU_TS;
 extern int WestwoodOnline_GameSKU_FS;
 extern int WestwoodOnline_GameSKU_WDT;
-extern char WestwoodOnline_LoginName[];
 extern char WestwoodOnline_UserName[];
 extern char WestwoodOnline_Clan1_Players[];
 extern char WestwoodOnline_Clan2_Players[];
 extern int g_PingsSent;
 extern int g_PingsReceived;
 
+// What the launch file asks of the results file a ladder client collects.
+struct StatisticsSettingsType
+{
+	bool IsWritten = false;
+	int MatchID = 0;
+	std::string MapHash;
+	std::string MapName;
+};
+extern StatisticsSettingsType StatisticsSettings;
+
 void	Register_Game_Start_Time(void);
 void	Register_Game_End_Time(void);
+void	Serialize_Game_Time(SaveStreamClass & stream);
 void	Send_Statistics_Packet(void);

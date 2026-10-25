@@ -28,11 +28,42 @@ Each command is checked again when it runs. A command that fails is ignored, and
 - A superweapon strike names one of the sender's superweapons.
 - A mission order names a defined mission, or none.
 - An alliance names an existing player.
-- An animation names a defined animation type, or none, and its owner, if it has one, is an existing player.
+- A shared control grant names an existing player.
 - A game speed change names one of the seven game speeds.
 - A change to the legacy latency setting stays within `0` to `3`.
 
-In a network game, a command aimed at one object requires the sender to own that object when the command runs. This covers power on or off, repair, sell, setting a primary factory or a rally point, deploy, scatter, stop, and move, attack, and other mission orders. A command to a missing or destroyed object does nothing. A captured object ignores commands from its former owner.
+In a network game, a command aimed at one object requires the sender to own that object when the command runs. This covers power on or off, repair, sell, setting a primary factory or a rally point, deploy, scatter, stop, and move, attack, and other mission orders. An ally who holds a [shared control](/systems/shared-control/) grant from the owner may also send all of these except power, repair, sell and setting a primary factory. A command to a missing or destroyed object does nothing. A captured object ignores commands from its former owner.
+
+## Interface rules in network games
+
+In a network game, every machine also applies the following rules from the sidebar and the cursors when a command runs. A command that breaks one is ignored.
+
+Three commands that no copy of the game sends are always ignored: a change to the special game rules, an animation placed by a player, and the old processing-time report.
+
+Placing a building on the map requires all of the following:
+
+- The object waiting in the sender's factory is a building. Vehicles, infantry, and aircraft leave their factory and cannot be placed on a chosen cell.
+- The site is inside the playable map.
+- The site passes the [base adjacency](/systems/base-adjacency/) check, or it is a building that accepts the upgrade being placed.
+- No cell of the foundation is under the sender's shroud, unless the building lays its own tile.
+
+Other commands have these rules:
+
+- Starting production requires the prerequisites, tech level, and side that the sidebar requires. Resuming a paused object of the same type is always allowed.
+- Selling a building requires a building that the sell cursor accepts. It cannot have [`Unsellable=yes`](/keys/unsellable/), be under construction or being sold, or be a deployed vehicle. A firestorm wall can be sold only while its firestorm is off. A move order that packs a building up into a vehicle still works.
+- Selling a vehicle or aircraft requires it to be docked at a building with [`UnitRepair=yes`](/keys/unitrepair/).
+- Starting a repair requires a building the repair cursor accepts: a damaged building with [`Repairable=yes`](/keys/repairable/), or one carrying a limpet drone. Stopping a repair is always allowed.
+- Turning a building's power on or off requires [`TogglePower=yes`](/keys/togglepower/) and a building that uses or needs power.
+- Selling a wall requires the sender to own the wall, with its cell clear of the sender's shroud.
+- A mission order gives one of the missions a player can order: move, queued move, attack, guard, area guard, enter, capture, sabotage, harvest, patrol, or unload. An order with no mission is also accepted.
+- A mission order's target and destination objects must not be under the sender's shroud. Objects that belong to the sender or an ally are exempt.
+- A strike from an EM pulse superweapon with [`Action=EMPulse`](/keys/action/#scope-superweapontype) must target a cell in range of the cannon that will fire it, which is the sender's operational pulse cannon nearest the target. A superweapon with `Action=EMPulseRange` still fires at any distance.
+- Making or breaking an alliance requires a match that allows alliances and does not fix them, a sender who has not been defeated, and a human target other than the sender.
+- Granting or withdrawing shared control requires the conditions on the [shared control](/systems/shared-control/#granting-and-withdrawing-control) page.
+
+Some of these commands can fail for a player whose game is not modified, because the match changes between the click and the command running. For example, the anchor for a placement or a prerequisite for production can be destroyed in that time, or a target can move into an area the sender has never seen.
+
+In a network game, a command that an unmodified game cannot send also shows every player the message "*player* sent an illegal command." This covers the three commands that no copy of the game sends, a check from the [command contents](#command-contents) list that fails, and these interface rules: placing a vehicle, infantry, or aircraft on a chosen cell, placing outside the playable map, toggling power on a building that does not allow it, selling another player's wall, giving a mission that players cannot order, and an alliance change the match does not allow. The message appears at most once per player for each broken rule in a match, and nobody is removed from the match. A command that fails because the match changed in the meantime is ignored without a message.
 
 ## Timing changes
 
@@ -88,6 +119,8 @@ Some of these messages have further rules:
 
 Checksums and address matching detect damaged packets and tell players apart. They do not prove who a player is.
 
-When a player leaves, every remaining machine queues that player's removal as a synchronized command. The first copy to run removes the player, and later copies do nothing.
+## Player removal
 
-Because every machine sends it, the removal command carries no check on who sent it. A modified game can use it to remove any other player, and every machine carries out the removal. A kick through the [reconnect dialog](/systems/reconnect-dialog/) still needs a vote from every other player.
+When a machine loses its connection to a player, it sends a synchronized report of that player's departure. The player is removed once more than half of the other players still in the match have reported it. Observers and defeated players who are still connected count among those players, and a player who has already been removed does not. In a two-player game, one report is enough.
+
+The reported player's own machine ignores a report from a player it is still connected to. A forged report in a two-player game therefore puts the match out of sync instead of removing the player. A kick through the [reconnect dialog](/systems/reconnect-dialog/) still needs a vote from every other player.

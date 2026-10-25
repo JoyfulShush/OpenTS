@@ -55,7 +55,7 @@ The [master](/systems/out-of-sync-recovery/#the-master) of a game against other 
 
 `LoadSaveGame=yes` resumes the save named by `SaveGameName`, from the game's saved-games folder. Write the file name alone; a path written before it is ignored.
 
-The save supplies the kind of game, its scenario, its options and its houses, so `IsSinglePlayer`, `Scenario` and the [match options](#the-options-every-house-plays-under) are not used. The file still sets `GameSpeed`, `PlayMoviesInMultiplayer`, the [automatic-save interval](#automatic-saves), the two [waits](#a-game-against-other-machines) for other machines, `SkipScoreScreen` and `QuickMatch`. `CustomLoadScreen`, `CustomLoadScreenPos` and `DifficultyName` take effect only when the mission is restarted, because loading a save shows no loading picture and no difficulty message. The computer players keep the names the save holds, so `DifficultyBasedAINames` has no effect.
+The save supplies the kind of game, its scenario, its options and its houses, so `IsSinglePlayer`, `Scenario` and the [match options](#the-options-every-house-plays-under) are not used. The file still sets `GameSpeed`, `PlayMoviesInMultiplayer`, the [automatic-save interval](#automatic-saves), the two [waits](#a-game-against-other-machines) for other machines, `SkipScoreScreen`, `QuickMatch` and the [match results file](#the-match-results-file) keys. `CustomLoadScreen`, `CustomLoadScreenPos` and `DifficultyName` take effect only when the mission is restarted, because loading a save shows no loading picture and no difficulty message. The computer players keep the names the save holds, so `DifficultyBasedAINames` has no effect.
 
 A restart after the resume replays the scenario the save names, or the [copy of it](/formats/save-games/#what-the-file-holds) the save carries when `CarryScenarioFile` in `OPENTS.INI` asks saves to include one.
 
@@ -116,6 +116,7 @@ These `[Settings]` keys set the rules of a skirmish or a game against other mach
 | `BuildOffAlly` | `yes` or `no` | `no` |
 | `AttackNeutralUnits` | `yes` or `no` | `no` |
 | `ScrapMetal` | `yes` or `no` | `no` |
+| `SharedControl` | `yes` or `no` | `no` |
 | `PlayMoviesInMultiplayer` | `yes` or `no` | `no` |
 
 A computer player plays at the slot opposite `AIDifficulty`, as [Difficulty settings](/systems/difficulty/#from-the-setting-to-a-slot) describes, unless its seat sets its own difficulty under [Who is playing](#who-is-playing).
@@ -127,6 +128,8 @@ A computer player plays at the slot opposite `AIDifficulty`, as [Difficulty sett
 `AttackNeutralUnits=yes` lets a target scan consider a neutral house, which a match otherwise passes over; [target selection](/systems/target-selection/#why-a-candidate-is-rejected) owns what is then picked. Each machine scans for itself, so every file needs the same value.
 
 `ScrapMetal=yes` makes a wreck leave the animations its type gives [`ScrapExplosion`](/keys/scrapexplosion/) instead of [`Explosion`](/keys/explosion/). The animation is drawn with the shared random number generator, so every file needs the same value.
+
+`SharedControl=yes` lets a player give an ally command of their units; [shared control](/systems/shared-control/) owns how. Every machine checks each grant, so every file needs the same value.
 
 `AutoDeployMCV=yes` deploys every house's starting base unit as the match opens; [starting forces](/systems/starting-forces/#the-base-unit) owns what that leaves on the map.
 
@@ -240,6 +243,20 @@ A saved game keeps the picture and the bar position. The first restart after the
 
 `QuickMatch=yes` shows every player, computer players included, as `Player 1` to `Player 8` instead of by name. This covers the loading screen, the radar's name list, chat, the messages about alliances, defeats, changed settings and players leaving, the reconnect and out-of-sync dialogs, the vote to skip a movie, the score screen, and the [`-MPDEBUG`](/using/command-line/multiplayer-debug/) overlay. A player's number is their seat's place in [house order](#who-is-playing), so it is the same on every machine and does not change when others leave. The real names stay in this file and still appear in the game's log.
 
+## The match results file
+
+`WriteStatistics=yes` writes the [match statistics file](/formats/stats-dmp/) when a game against other machines is decided. It defaults to `no`, and a skirmish or campaign mission writes no file either way.
+
+The file reports the match under these keys:
+
+| Key | Reported as | When omitted |
+| --- | --- | --- |
+| `GameID` | The match number | `0` |
+| `MapHash` | The map's identity, as the client wrote it | Left out |
+| `UIMapName` | The map's name | The scenario's own name |
+
+These keys do not change the match, so the machines' launch files may differ on them.
+
 ## A game against other machines
 
 Each machine writes its own file, with itself in `[Settings]` and the other people in the `[OtherN]` sections. Write the other people in consecutive sections from `[Other1]`, so the computer players take the same file positions in every file. Apart from where each person is written, `Host`, and the `Ip` and `Port` entries of `[Settings]` and `[OtherN]`, every file must describe the same match:
@@ -250,11 +267,11 @@ Each machine writes its own file, with itself in `[Settings]` and the other peop
 - the same entries in `[HouseColors]`, `[HouseCountries]`, `[HouseHandicaps]`, `[SpawnLocations]`, the `[MultiN_Alliances]` sections and `[IsSpectator]`;
 - the same `[Tunnel]` section, when the match is played through a tunnel.
 
-The keys under [What a player is shown](#what-a-player-is-shown) and the two waits below may differ between machines.
+The keys under [What a player is shown](#what-a-player-is-shown) and [The match results file](#the-match-results-file), and the two waits below, may differ between machines.
 
 Before play begins, the machines compare the scenarios they loaded. If they differ, the match stops with the message `Scenarios don't match.`
 
-The `Session identity:` line in an [out-of-sync report](/using/out-of-sync-reports/) differs between machines whose files disagree on anything in the list above, except `Name`, `AutoSaveGame` and the `[Tunnel]` section. Scenario files that differ under the same name give the same identity. `Host`, the `Ip` and `Port` entries, the waits and the keys under [What a player is shown](#what-a-player-is-shown) do not change it.
+The `Session identity:` line in an [out-of-sync report](/using/out-of-sync-reports/) differs between machines whose files disagree on anything in the list above, except `Name`, `AutoSaveGame` and the `[Tunnel]` section. Scenario files that differ under the same name give the same identity. `Host`, the `Ip` and `Port` entries, the waits and the keys under [What a player is shown](#what-a-player-is-shown) and [The match results file](#the-match-results-file) do not change it.
 
 Without a tunnel, each `[OtherN]` section also gives `Ip`, the address that machine answers on, and `Port`, the port it listens on. `[Settings] Port` is the port this machine listens on, `1234` by default. Write each address as a dotted IPv4 address such as `203.0.113.7`; a host name is refused.
 
@@ -300,7 +317,7 @@ A game against other machines, new or resumed, is also refused when:
 
 ## What the game does not take from a launch file
 
-The game sets how far ahead the machines run and how often they exchange their orders, and no launch file changes them. `MapHash` is not read either; the machines compare the scenarios they loaded instead.
+The game sets how far ahead the machines run and how often they exchange their orders, and no launch file changes them. `MapHash` goes only into the [match statistics file](/formats/stats-dmp/); the machines compare the scenarios they loaded instead.
 
 `AimableSams` is not read: a defense whose weapon reaches only the air can be aimed at a chosen aircraft, which [`SAM`](/keys/sam/) owns.
 
@@ -308,6 +325,6 @@ The game sets how far ahead the machines run and how often they exchange their o
 
 `ReadMissionSection` and `CustomMissionID` are not read, and neither is the mission section a client writes for a custom mission. A custom mission's loading picture reaches this game through `CustomLoadScreen`.
 
-`UIMapName` is not shown anywhere.
+`UIMapName` is not shown anywhere; only the [match statistics file](/formats/stats-dmp/) reports it.
 
-`Tournament`, `GameID` and `WriteStatistics` are not read.
+`Tournament` is not read.
