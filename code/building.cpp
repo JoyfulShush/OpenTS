@@ -6506,13 +6506,14 @@ int BuildingClass::Do_MISSION_OPEN(void)
 				GateTimer = int(Class->GateCloseDelay * TICKS_PER_MINUTE);
 				return(0);
 
-			case START_CLOSING:
+			case START_CLOSING: {
 				Door.Close_Door(Class->DeployTime);
 				Status = CLOSING;
 
 				VocType gate_up_sound = Class->GateUpSound != VOC_NONE ? Class->GateUpSound : Rule->GateUpSound;
 				Sound_Effect(gate_up_sound, PositionCoord);
 				return(0);
+			}
 
 			case OPEN:
 				if (!Is_Blocked_By_Occupier()) {

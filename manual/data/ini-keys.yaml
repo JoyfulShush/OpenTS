@@ -9773,6 +9773,23 @@ GateDown:
       source: code/rules.cpp
       guard: null
     level: RulesClass
+GateDownSound:
+  key: GateDownSound
+  scopes:
+  - applies_to: *id004
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: sound
+    status: generated
+    _provenance:
+      default_candidate: none
+      declared_in: BuildingTypeClass
+      member: GateDownSound
+      source: code/builtype.cpp
+      guard: null
+    level: BuildingTypeClass
 GateStages:
   key: GateStages
   scopes:
@@ -9808,6 +9825,23 @@ GateUp:
       source: code/rules.cpp
       guard: null
     level: RulesClass
+GateUpSound:
+  key: GateUpSound
+  scopes:
+  - applies_to: *id004
+    file: rules.ini
+    section:
+      kind: identifier
+      source: object-type
+    value_type: sound
+    status: generated
+    _provenance:
+      default_candidate: none
+      declared_in: BuildingTypeClass
+      member: GateUpSound
+      source: code/builtype.cpp
+      guard: null
+    level: BuildingTypeClass
 GenericBeep:
   key: GenericBeep
   scopes:
