@@ -160,4 +160,5 @@ void SideClass::Serialize(SaveStreamClass & stream)
 	stream.Serialize(IsAIBuildsWalls);
 	stream.Serialize(AIBaseDefensePlaceholders);
 	stream.Serialize(IsAIBaseDefensesWithWalls);
+	stream.Serialize(ScreenTextColor);
 }

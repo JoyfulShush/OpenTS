@@ -1358,7 +1358,8 @@ void Tactical::Clear_Caption_Text(void)
 
 
 /// <summary>
-/// Draws white caption text with a black shadow across the middle of the tactical view.
+/// Draws caption text with a black shadow across the middle of the tactical view.
+/// Its color is drawn from the side-specific ScreenTextColor, or white if none is defined for the player's side.
 /// </summary>
 /// <param name="text">The text to display. A NULL or empty string draws nothing.</param>
 void Tactical::Draw_Screen_Text(char const * text)
