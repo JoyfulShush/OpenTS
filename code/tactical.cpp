@@ -42,6 +42,7 @@
 #include "font.h"
 #include "globals.h"
 #include "house.h"
+#include "houstype.h"
 #include "incdec.h"
 #include "inline.h"
 #include "ionblast.h"
@@ -67,6 +68,7 @@
 
 #include "ramp.hh"
 #include "scrspeed.hh"
+#include "side.h"
 
 #include <utility>
 
@@ -1379,8 +1381,15 @@ void Tactical::Draw_Screen_Text(char const * text)
 			SetTextAlign(hdc, TA_CENTER);
 			SetTextColor(hdc, RGB(0, 0, 0));
 			TextOut(hdc, rect.X + point.X + 3, rect.Y + point.Y + 3, text, strlen(text));
-			SetTextColor(hdc, RGB(255, 255, 255));
+
+			RGBClass text_color = SCREEN_TEXT_DEFAULT_COLOR;
+			if (PlayerPtr != nullptr && PlayerPtr->Class->Side != SIDE_NONE) {
+				text_color = Sides[PlayerPtr->Class->Side]->ScreenTextColor;
+			}
+
+			SetTextColor(hdc, RGB(text_color.Get_Red(), text_color.Get_Green(), text_color.Get_Blue()));
 			TextOut(hdc, rect.X + point.X, rect.Y + point.Y, text, strlen(text));
+
 			SelectObject(hdc, h);
 			DeleteObject(font);
 			surface->ReleaseDC(hdc);
