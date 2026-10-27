@@ -743,7 +743,7 @@ class TechnoClass :	public RadioClass,
 
 		/*
 		 * Event functions triggered by callbacks.
-		 */
+		 */ 
 		void On_Promoted(bool silent);
 };
 

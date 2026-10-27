@@ -132,7 +132,7 @@ void VeterancyClass::Set_Experience(double value, bool silent)
 /// <param name="value">The point value of the victim.</param>
 void VeterancyClass::Made_A_Kill(int cost, int value)
 {
-	double experience_earned = value / (cost * Rule->VeteranRatio);
+	double experience_earned = value / (cost * Rule->VeteranRatio); 
 	Set_Experience(Experience + experience_earned);
 }
 
