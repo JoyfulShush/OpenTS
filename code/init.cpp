@@ -57,8 +57,7 @@
 #include "always.h"
 
 #include "init.h"
-#include "goptions.h"
-#include "ui/screens/gamectrl/uigamectrl.h"
+
 #include "_bench.h"
 #include "_command.h"
 #include "_convert.h"
@@ -119,6 +118,7 @@
 #include "gamedlg.h"
 #include "getcpu.h"
 #include "globals.h"
+#include "goptions.h"
 #include "headless.h"
 #include "houstype.h"
 #include "incdec.h"
@@ -186,6 +186,7 @@
 #include "tutorial.h"
 #include "ui/screens/campaign/uicampaign.h"
 #include "ui/screens/diplomacy/uidiplomacy.h"
+#include "ui/screens/gamectrl/uigamectrl.h"
 #include "ui/screens/menu/uimenu.h"
 #include "ui/screens/version/uiversion.h"
 #include "ui/uienginehost.h"
