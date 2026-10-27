@@ -57,7 +57,8 @@
 #include "always.h"
 
 #include "init.h"
-
+#include "goptions.h"
+#include "ui/screens/gamectrl/uigamectrl.h"
 #include "_bench.h"
 #include "_command.h"
 #include "_convert.h"
@@ -5263,6 +5264,46 @@ class QuickLoadCommandClass : public CommandClass
 };
 
 
+class IncreaseGameSpeedCommandClass : public CommandClass
+{
+	public:
+		virtual char const * Get_Unique_Name(void) const { return ("IncreaseGameSpeed"); }
+		virtual char const * Get_Display_Name(void) const { return (Fetch_String(TXT_INCREASE_GAME_SPEED)); }
+		virtual char const * Get_Category(void) const { return (Fetch_String((TXT_INTERFACE))); }
+		virtual char const * Get_Description(void) const { return (Fetch_String(TXT_INCREASE_GAME_SPEED_DESC)); }
+
+		virtual void Execute(void) const
+		{
+			int game_speed = Options.GameSpeed;
+
+			if (game_speed <= 0) return;
+
+			game_speed -= 1;
+			UI_Game_Controls_Service().Set_Game_Speed(game_speed);
+		}
+};
+
+class DecreaseGameSpeedCommandClass : public CommandClass
+{
+	public:
+		virtual char const * Get_Unique_Name(void) const { return ("DecreaseGameSpeed"); }
+		virtual char const * Get_Display_Name(void) const { return (Fetch_String(TXT_DECREASE_GAME_SPEED)); }
+		virtual char const * Get_Category(void) const { return (Fetch_String((TXT_INTERFACE))); }
+		virtual char const * Get_Description(void) const { return (Fetch_String(TXT_DECREASE_GAME_SPEED_DESC)); }
+
+		virtual void Execute(void) const
+		{
+			int game_speed = Options.GameSpeed;
+
+			// MAX_SPEED_SETTING is not allowed as a game speed, so the maximum allowed speed is actually one less
+			if (game_speed == OptionsClass::MAX_SPEED_SETTING - 1) return;
+
+			game_speed += 1;
+			UI_Game_Controls_Service().Set_Game_Speed(game_speed);
+		}
+};
+
+
 class ChatToAllCommandClass : public CommandClass
 {
 	public:
@@ -5535,6 +5576,8 @@ static void Init_Commands(void)
 
 	AllCommands.Add(new QuickSaveCommandClass);
 	AllCommands.Add(new QuickLoadCommandClass);
+	AllCommands.Add(new IncreaseGameSpeedCommandClass);
+	AllCommands.Add(new DecreaseGameSpeedCommandClass);	
 
 	const CommandClass * chatallcmd = new ChatToAllCommandClass;
 	AllCommands.Add(chatallcmd);
