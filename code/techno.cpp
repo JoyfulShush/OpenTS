@@ -264,7 +264,7 @@ TechnoClass::TechnoClass(HouseClass * house) :
 	PurchasePrice(0),
 	ActLike(HOUSE_NONE),
 	Cargo(),
-	Veterancy([this](bool notify_player) { On_Unit_Promoted(notify_player); }),
+	Veterancy([this](bool silent) { On_Promoted(silent); }),
 	RadarFlashTimer(),
 	RadarPos(0,0),
 	Group(-1),
@@ -9159,51 +9159,18 @@ void TechnoClass::Set_Talker(TechnoClass * techno, TalkType bubble)
 /// if the techno being promoted is under his control.
 /// Dumbasses being promoted to rookies never notify players for their promotions.
 /// </summary>
-/// <param name="notify_player">Whether the player should be notified via sounds and visuals for the promotion of their technos.</param>
-void TechnoClass::On_Unit_Promoted(bool notify_player)
+/// <param name="silent">Whether the player should be notified via sounds and visuals for the promotion of their technos.</param>
+void TechnoClass::On_Promoted(bool silent)
 {
 	auto new_rank = Veterancy.Get_Rank();
 
 	// force the techno to look again around itself in case sight range was changed by the promotion.
 	Look();
-	
+
 	if (new_rank == RANK_ROOKIE) return;
-	if (!notify_player) return;
-	if (!House->Is_Player_Control()) return;
-
-	auto sound = new_rank == RANK_ELITE ? Rule->UpgradeEliteSound : Rule->UpgradeVeteranSound;
+	if (!silent) return;
 	int flash_count = new_rank == RANK_ELITE ? Rule->EliteFlashTimer : Rule->VeteranFlashTimer;
-
 	Speak(Rule->VoxUnitPromoted);
 	Sound_Effect(sound, PositionCoord);
-	FlashCount = flash_count;	
-}
-
-
-/// <summary>
-/// Returns the sight range of this techno after calculations.
-/// Takes into account veterancy bonuses as well height bonuses, if any.
-/// </summary>
-/// <returns>The type's sight range after all calculations.</returns>
-int TechnoClass::Get_Sight_Range() const
-{
-	int sight_range = TClass->SightRange;
-	if (Veterancy.Is_Elite()) {
-		if (TClass->EliteSightRange > 0) {
-			sight_range = TClass->EliteSightRange;
-		} else if (TClass->VeteranSightRange > 0) {
-			sight_range = TClass->VeteranSightRange;
-		}
-	} else if (Veterancy.Is_Veteran()) {
-		if (TClass->VeteranSightRange > 0) {
-			sight_range = TClass->VeteranSightRange;
-		}
-	}
-
-	sight_range *= (SightIncrease * 0.01 + 1.0);
-	if (Has_Ability(ABILITY_SIGHT) && Rule->VeteranSight != 0.0) {
-		sight_range *= Rule->VeteranSight + 1;
-	}
-
-	return sight_range;
+	FlashCount = flash_count;
 }

@@ -743,8 +743,8 @@ class TechnoClass :	public RadioClass,
 
 		/*
 		 * Event functions triggered by callbacks.
-		 */ 
-		void On_Unit_Promoted(bool notify_player);
+		 */
+		void On_Promoted(bool silent);
 };
 
 inline bool TechnoClass::Is_Allowed_To_Leave_Map(void) const { return(false); }

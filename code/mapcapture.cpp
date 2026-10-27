@@ -12,6 +12,7 @@
 
 #include "mapcapture.h"
 
+#include "_logic.h"
 #include "_map.h"
 #include "_rect.h"
 #include "_surface.h"
@@ -21,22 +22,27 @@
 #include "ccini.h"
 #include "dbgprint.h"
 #include "dsurface.h"
-#include "except.h"
 #include "globals.h"
+#include "headless.h"
 #include "house.h"
 #include "init.h"
+#include "light.h"
+#include "logic.h"
 #include "mplayer.h"
 #include "png.h"
+#include "queue.h"
 #include "rawfile.h"
 #include "scenario.h"
-#include "sdl/sdlwindow.h"
 #include "session.h"
 #include "sidebar.h"
+#include "spawnerconfig.h"
 #include "tactical.h"
+#include "tracker.h"
 
-#include <cstdarg>
 #include <cstdio>
+#include <filesystem>
 #include <string>
+#include <vector>
 
 
 namespace MapCapture
@@ -46,45 +52,122 @@ namespace MapCapture
 		// Random animation delays come from the seed, so a fixed one draws the same frame every run.
 		constexpr int CAPTURE_SEED = 1;
 
-		std::string MapName;
-		std::string OutputPath;
-		bool IsConsoleAttached = false;
-		int ExitCode = EXIT_FAILURE;
+		char const * const SETTINGS_SECTION = "Capture";
+
+		enum class ShroudType { None, Player };
+		enum class SeatsType { Observer, Listed };
+		enum class AreaType { Local, Full };
+
+		struct CaptureType
+		{
+			std::string Map;
+			std::string Output;
+			ShroudType Shroud = ShroudType::None;
+			SeatsType Seats = SeatsType::Observer;
+			AreaType Area = AreaType::Local;
+			int Frames = 0;
+		};
+
+		CaptureType Capture;
+		std::string DescriptionPath;
+		bool IsShorthand = false;
+		SpawnerConfigClass ListedSeats;
 
 
 		/// <summary>
-		/// Stops every dialog the run could show, and connects stderr to the console the game
-		/// was started from, when there is one.
+		/// Reads one of a [Capture] setting's named values. A missing key keeps the current value.
 		/// </summary>
-		void Enter_Unattended(void)
+		/// <returns>bool; Is the key missing or one of the names given?</returns>
+		bool Read_Choice(INIClass const & ini, char const * key, char const * const * names, int count, int & choice)
 		{
-			static bool entered = false;
-			if (entered) {
-				return;
+			char value[64];
+			if (ini.Get_String(SETTINGS_SECTION, key, "", value, sizeof(value)) == 0) {
+				return(true);
 			}
-			entered = true;
 
-			Exception_Set_Unattended(true);
-			Main_Window_Set_Unattended(true);
-			Debug_Quiet = true;
-
-			if (AttachConsole(ATTACH_PARENT_PROCESS)) {
-				FILE * stream = NULL;
-				IsConsoleAttached = freopen_s(&stream, "CONOUT$", "w", stderr) == 0;
+			for (int index = 0; index < count; index++) {
+				if (stricmp(value, names[index]) == 0) {
+					choice = index;
+					return(true);
+				}
 			}
+
+			Headless::Fail("[%s] %s=%s is not one of the values it accepts.", SETTINGS_SECTION, key, value);
+			return(false);
 		}
 
 
-		void Failf(char const * format, ...)
+		/// <summary>
+		/// Reads the [Capture] settings over their defaults.
+		/// </summary>
+		/// <returns>bool; Were the settings valid?</returns>
+		bool Read_Settings(INIClass const & ini)
 		{
-			char buffer[_MAX_PATH + 256];
+			static char const * const _shrouds[] = { "None", "Player" };
+			static char const * const _seats[] = { "Observer", "Listed" };
+			static char const * const _areas[] = { "Local", "Full" };
 
-			va_list args;
-			va_start(args, format);
-			std::vsnprintf(buffer, sizeof(buffer), format, args);
-			va_end(args);
+			int shroud = (int)Capture.Shroud;
+			int seats = (int)Capture.Seats;
+			int area = (int)Capture.Area;
+			if (!Read_Choice(ini, "Shroud", _shrouds, ARRAY_SIZE(_shrouds), shroud)
+					|| !Read_Choice(ini, "Seats", _seats, ARRAY_SIZE(_seats), seats)
+					|| !Read_Choice(ini, "Area", _areas, ARRAY_SIZE(_areas), area)) {
+				return(false);
+			}
 
-			Fail(buffer);
+			Capture.Shroud = (ShroudType)shroud;
+			Capture.Seats = (SeatsType)seats;
+			Capture.Area = (AreaType)area;
+			Capture.Frames = ini.Get_Int(SETTINGS_SECTION, "Frames", Capture.Frames);
+
+			if (Capture.Frames < 0) {
+				Headless::Fail("[%s] Frames=%d is negative.", SETTINGS_SECTION, Capture.Frames);
+				return(false);
+			}
+			return(true);
+		}
+
+
+		/// <summary>
+		/// Reads the capture's map, output and settings from the description file, and its seats
+		/// for Seats=Listed. A relative output path is taken from the file's folder.
+		/// </summary>
+		/// <returns>bool; Was the file read and the capture in it complete and valid?</returns>
+		bool Read_Description(void)
+		{
+			RawFileClass file(DescriptionPath.c_str());
+			if (!file.Is_Available()) {
+				Headless::Fail("The capture description %s was not found.", DescriptionPath.c_str());
+				return(false);
+			}
+
+			INIClass ini;
+			ini.Load(file);
+
+			if (!Read_Settings(ini)) {
+				return(false);
+			}
+
+			char value[_MAX_PATH];
+			ini.Get_String(SETTINGS_SECTION, "Map", "", value, sizeof(value));
+			Capture.Map = value;
+			ini.Get_String(SETTINGS_SECTION, "Output", "", value, sizeof(value));
+			Capture.Output = value;
+
+			if (Capture.Map.empty() || Capture.Output.empty()) {
+				Headless::Fail("[%s] needs both Map= and Output=.", SETTINGS_SECTION);
+				return(false);
+			}
+
+			std::filesystem::path output(Capture.Output);
+			if (output.is_relative()) {
+				output = std::filesystem::absolute(std::filesystem::path(DescriptionPath)).parent_path() / output;
+				Capture.Output = output.string();
+			}
+
+			ListedSeats.Read_INI(ini);
+			return(true);
 		}
 
 
@@ -148,12 +231,106 @@ namespace MapCapture
 		}
 
 
+		unsigned Allies_Mask(SpawnerConfigClass::SlotType const & seat)
+		{
+			unsigned mask = 0;
+			for (int ally : seat.Alliances) {
+				if (ally >= 0 && ally < SpawnerConfigClass::SLOT_COUNT) {
+					mask |= 1u << ally;
+				}
+			}
+			return(mask);
+		}
+
+
+		// Seats the houses the description lists, as a client launch seats them for a skirmish.
+		bool Seat_Listed(void)
+		{
+			std::string fault;
+			if (!ListedSeats.Is_Playable(HouseTypes.Count(), Session.Color_Count(), fault)) {
+				Headless::Fail("The listed seats cannot be played: %s", fault.c_str());
+				return(false);
+			}
+
+			Session.Type = GAME_SKIRMISH;
+
+			Clear_Vector(&Session.Players);
+			Clear_Vector(&Session.Computers);
+
+			Session.Options.Bases = ListedSeats.Bases;
+			Session.Options.Credits = ListedSeats.Credits;
+			Session.Options.Goodies = ListedSeats.Crates;
+			Session.Options.UnitCount = ListedSeats.UnitCount;
+			Session.Options.AIPlayers = ListedSeats.AIPlayers;
+			Session.Options.AIDifficulty = (DiffType)ListedSeats.AIDifficulty;
+			Session.Options.FogOfWar = ListedSeats.FogOfWar;
+			BuildLevel = ListedSeats.TechLevel;
+
+			SpawnerConfigClass::SlotType const & local = ListedSeats.Slots[ListedSeats.LocalSlot];
+			std::snprintf(Session.Handle, sizeof(Session.Handle), "%s", local.Name.empty() ? "Player" : local.Name.c_str());
+			Session.House = local.Country;
+			Session.ColorIdx = local.Color;
+			Session.PrefColor = local.Color;
+
+			// The game takes the first human seat to be the one it draws for.
+			std::vector<int> humans = { ListedSeats.LocalSlot };
+			for (int index = 0; index < ListedSeats.HumanCount; index++) {
+				if (index != ListedSeats.LocalSlot) {
+					humans.push_back(index);
+				}
+			}
+
+			for (int index : humans) {
+				SpawnerConfigClass::SlotType const & seat = ListedSeats.Slots[index];
+				NodeNameType * node = new NodeNameType;
+				std::snprintf(node->Name, sizeof(node->Name), "%s", seat.Name.empty() ? "Player" : seat.Name.c_str());
+				node->Player.House = seat.Country;
+				node->Player.Color = seat.Color;
+				node->Player.ProcessTime = -1;
+				node->Player.SpawnChoice = seat.StartingPosition;
+				node->Player.AlliesMask = Allies_Mask(seat);
+				node->Player.IsObserver = seat.IsSpectator;
+				Session.Players.Add(node);
+			}
+
+			for (int index = ListedSeats.HumanCount; index < SpawnerConfigClass::SLOT_COUNT; index++) {
+				SpawnerConfigClass::SlotType const & seat = ListedSeats.Slots[index];
+				if (seat.Occupancy != SpawnerConfigClass::OccupancyType::Computer) {
+					continue;
+				}
+
+				NodeNameType * node = new NodeNameType;
+				node->Player.House = seat.Country;
+				node->Player.Color = seat.Color;
+				node->Player.Handicap = SpawnerConfigClass::Playable_Handicap(seat.Handicap);
+				node->Player.SpawnChoice = seat.StartingPosition;
+				node->Player.AlliesMask = Allies_Mask(seat);
+				Session.Computers.Add(node);
+			}
+
+			Session.NumPlayers = ListedSeats.HumanCount;
+			Session.PlayerHouse = (HousesType)local.Country;
+			return(true);
+		}
+
+
 		void Seat_Campaign(void)
 		{
 			Session.Type = GAME_NORMAL;
 			Session.CampaignDifficulty = DIFF_NORMAL;
 			Session.CampaignCDifficulty = DIFF_NORMAL;
 			Scen->Campaign = CAMPAIGN_NONE;
+		}
+
+
+		// The logic part of a game frame, without input, drawing or the frame rate limit.
+		void Run_Logic_Frame(void)
+		{
+			DisplayClass::Layer[LAYER_GROUND].Sort();
+			Logic.AI();
+			Queue_AI();
+			Frame++;
+			Process_Deferred_Deletion();
 		}
 
 
@@ -165,7 +342,7 @@ namespace MapCapture
 			// frames the whole LocalSize area.
 			Rect const view(0, 0, ISO_TILE_PIXEL_W * local.Width, ISO_TILE_PIXEL_H * (2 * local.Height + 9) / 2);
 			if (!view.Is_Valid()) {
-				Failf("The map's LocalSize %d,%d,%d,%d leaves nothing to draw.", local.X, local.Y, local.Width, local.Height);
+				Headless::Fail("The map's LocalSize %d,%d,%d,%d leaves nothing to draw.", local.X, local.Y, local.Width, local.Height);
 				return(false);
 			}
 
@@ -174,11 +351,15 @@ namespace MapCapture
 					|| CompositeSurface == NULL || TileSurface == NULL
 					|| ((DSurface *)CompositeSurface)->Get_Buffer() == NULL
 					|| ((DSurface *)TileSurface)->Get_Buffer() == NULL) {
-				Failf("No %dx%d drawing surface could be allocated.", view.Width, view.Height);
+				Headless::Fail("No %dx%d drawing surface could be allocated.", view.Width, view.Height);
 				return(false);
 			}
 
 			Map.Set_View_Dimensions(view);
+
+			// A full render draws overlays and shadows again inside each dirty area, and the logic
+			// frames registered theirs against whatever view was current while they ran.
+			TacticalMap->Reset_Dirty_Rectangles();
 
 			LogicalSurface = CompositeSurface;
 			TacticalMap->Render(*CompositeSurface, true, DRAW_PASS_FULL);
@@ -186,133 +367,146 @@ namespace MapCapture
 			DSurface const * surface = (DSurface const *)CompositeSurface;
 			unsigned short const * pixels = (unsigned short const *)surface->Get_Buffer();
 
-			RawFileClass file(OutputPath.c_str());
+			RawFileClass file(Capture.Output.c_str());
 			if (!Write_PNG_File(file, view.Width, view.Height, surface->Stride(), pixels)) {
 				file.Delete();
-				Failf("%s could not be written.", OutputPath.c_str());
+				Headless::Fail("%s could not be written.", Capture.Output.c_str());
 				return(false);
 			}
 
-			DebugString("MapCapture: wrote %s, %dx%d, from LocalSize %d,%d,%d,%d.\n", OutputPath.c_str(),
+			DebugString("MapCapture: wrote %s, %dx%d, from LocalSize %d,%d,%d,%d.\n", Capture.Output.c_str(),
 				view.Width, view.Height, local.X, local.Y, local.Width, local.Height);
 			return(true);
 		}
+
+
+		bool Check(void)
+		{
+			if (!DescriptionPath.empty()) {
+				if (IsShorthand) {
+					Headless::Fail("Use either -CAPTURE=<file> or -CAPTUREMAP=<map> with -CAPTUREOUT=<png>, not both.");
+					return(false);
+				}
+				return(Read_Description());
+			}
+
+			if (Capture.Map.empty() || Capture.Output.empty()) {
+				Headless::Fail("A map capture needs both -CAPTUREMAP=<map> and -CAPTUREOUT=<png>.");
+				return(false);
+			}
+			return(true);
+		}
+
+
+		/// <summary>
+		/// Loads the map with the seats the capture asks for, runs the logic frames it asks for,
+		/// and writes the PNG of the area it asks for. A campaign mission keeps every house it
+		/// lists, whatever the seats setting.
+		/// </summary>
+		/// <returns>bool; Was the PNG written?</returns>
+		bool Run(void)
+		{
+			CCFileClass file(Capture.Map.c_str());
+			if (!file.Is_Available()) {
+				Headless::Fail("The map %s was not found.", Capture.Map.c_str());
+				return(false);
+			}
+
+			CCINIClass ini;
+			ini.Load(file, false);
+			bool const campaign = Is_Campaign_Map(ini);
+			bool const listed = !campaign && Capture.Seats == SeatsType::Listed;
+
+			if (Capture.Shroud == ShroudType::Player && !campaign
+					&& (!listed || ListedSeats.Slots[ListedSeats.LocalSlot].IsSpectator)) {
+				Headless::Fail("Shroud=Player needs a playing seat: set Seats=Listed with a local seat that is not a spectator.");
+				return(false);
+			}
+
+			// Firestorm adds to the base game's art and rules, so with it every map draws.
+			Disable_Addon(ADDON_ANY);
+			if (Addon_Installed(ADDON_FIRESTORM) && (!listed || ListedSeats.Firestorm)) {
+				Enable_Addon(ADDON_FIRESTORM);
+				Set_Required_Addon(ADDON_FIRESTORM);
+			}
+
+			if (campaign) {
+				Seat_Campaign();
+			} else if (listed) {
+				if (!Seat_Listed()) {
+					return(false);
+				}
+			} else {
+				Seat_Observer();
+			}
+
+			CustomSeed = (listed && ListedSeats.Seed != 0) ? ListedSeats.Seed : CAPTURE_SEED;
+			Init_Random();
+
+			std::snprintf(Scen->ScenarioName, sizeof(Scen->ScenarioName), "%s", Capture.Map.c_str());
+			DebugString("MapCapture: loading %s as a %s.\n", Scen->ScenarioName,
+				campaign ? "campaign map" : (listed ? "multiplayer map with listed seats" : "multiplayer map"));
+
+			if (!Read_Scenario(Scen->ScenarioName)) {
+				Headless::Fail("The map %s could not be loaded.", Capture.Map.c_str());
+				return(false);
+			}
+
+			if (Capture.Area == AreaType::Full) {
+				Map.Set_Local_Dimensions(Map.PlayRect);
+			}
+
+			for (int frame = 0; frame < Capture.Frames && GameActive; frame++) {
+				Run_Logic_Frame();
+			}
+
+			// The frames commit lighting changes within a wall-clock budget, so any still queued are
+			// finished here; otherwise a faster run would draw a different frame.
+			LightSourceClass::Process_Lighting(0, true);
+
+			if (Capture.Shroud == ShroudType::None && !PlayerPtr->IsObserver) {
+				Map.Reveal_The_Map(PlayerPtr, true);
+				Session.ObiWan = 1;
+			}
+
+			return(Render_And_Write());
+		}
+
+
+		Headless::Task const Task = { "MapCapture", Check, Run };
 	}
 
 
 	/// <summary>
-	/// Names the map a capture run draws. Any capture option puts the run in unattended mode
-	/// at once, so a failure later in startup shows no dialog either.
+	/// Names the map a capture run draws, which makes the run headless.
 	/// </summary>
 	void Request_Map(char const * name)
 	{
-		MapName = name;
-		Enter_Unattended();
+		Capture.Map = name;
+		IsShorthand = true;
+		Headless::Request(Task);
 	}
 
 
 	/// <summary>
-	/// Names the PNG a capture run writes, replacing any file already there. A relative path is
-	/// taken from the game's folder.
+	/// Names the PNG a capture run writes, replacing any file already there, which makes the
+	/// run headless. A relative path is taken from the game's folder.
 	/// </summary>
 	void Request_Output(char const * path)
 	{
-		OutputPath = path;
-		Enter_Unattended();
-	}
-
-
-	bool Is_Requested(void)
-	{
-		return(!MapName.empty() || !OutputPath.empty());
+		Capture.Output = path;
+		IsShorthand = true;
+		Headless::Request(Task);
 	}
 
 
 	/// <summary>
-	/// Refuses a capture request that names only the map or only the output.
+	/// Names the file that describes a capture, which makes the run headless. A relative path is
+	/// taken from the game's folder.
 	/// </summary>
-	/// <returns>bool; Can startup go on?</returns>
-	bool Check_Request(void)
+	void Request_Description(char const * path)
 	{
-		if (Is_Requested() && (MapName.empty() || OutputPath.empty())) {
-			Fail("A map capture needs both -CAPTUREMAP=<map> and -CAPTUREOUT=<png>.");
-			return(false);
-		}
-		return(true);
-	}
-
-
-	/// <summary>
-	/// Records why the capture failed, in the debug log and on the console the game was
-	/// started from. The run exits with a failure code from then on.
-	/// </summary>
-	void Fail(char const * text)
-	{
-		ExitCode = EXIT_FAILURE;
-		DebugString("MapCapture: %s\n", text);
-
-		if (IsConsoleAttached) {
-			std::fprintf(stderr, "%s\n", text);
-			std::fflush(stderr);
-		}
-	}
-
-
-	/// <summary>
-	/// Loads the requested map, draws its LocalSize area with no shroud and no interface, and
-	/// writes the PNG. A multiplayer map is loaded with one observer, so only Neutral and
-	/// Special objects remain; a campaign mission keeps every house it lists. No game logic
-	/// runs, so the frame is the scenario exactly as it starts.
-	/// </summary>
-	void Run(void)
-	{
-		CCFileClass file(MapName.c_str());
-		if (!file.Is_Available()) {
-			Failf("The map %s was not found.", MapName.c_str());
-			return;
-		}
-
-		CCINIClass ini;
-		ini.Load(file, false);
-		bool const campaign = Is_Campaign_Map(ini);
-
-		// Firestorm adds to the base game's art and rules, so with it every map draws.
-		Disable_Addon(ADDON_ANY);
-		if (Addon_Installed(ADDON_FIRESTORM)) {
-			Enable_Addon(ADDON_FIRESTORM);
-			Set_Required_Addon(ADDON_FIRESTORM);
-		}
-
-		if (campaign) {
-			Seat_Campaign();
-		} else {
-			Seat_Observer();
-		}
-
-		CustomSeed = CAPTURE_SEED;
-		Init_Random();
-
-		std::snprintf(Scen->ScenarioName, sizeof(Scen->ScenarioName), "%s", MapName.c_str());
-		DebugString("MapCapture: loading %s as a %s map.\n", Scen->ScenarioName, campaign ? "campaign" : "multiplayer");
-
-		if (!Read_Scenario(Scen->ScenarioName)) {
-			Failf("The map %s could not be loaded.", MapName.c_str());
-			return;
-		}
-
-		if (campaign) {
-			Map.Reveal_The_Map(PlayerPtr, true);
-			Session.ObiWan = 1;
-		}
-
-		if (Render_And_Write()) {
-			ExitCode = EXIT_SUCCESS;
-		}
-	}
-
-
-	int Exit_Code(void)
-	{
-		return(ExitCode);
+		DescriptionPath = path;
+		Headless::Request(Task);
 	}
 }

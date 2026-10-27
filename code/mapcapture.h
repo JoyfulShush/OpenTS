@@ -11,14 +11,10 @@
 #pragma once
 
 
-// Renders one map to a PNG for a lobby preview; a capture run logs what a dialog would show and fails.
+// Renders a map to a PNG, such as a lobby preview, as a headless task.
 namespace MapCapture
 {
 	void Request_Map(char const * name);
 	void Request_Output(char const * path);
-	bool Is_Requested(void);
-	bool Check_Request(void);
-	void Fail(char const * text);
-	void Run(void);
-	int Exit_Code(void);
+	void Request_Description(char const * path);
 }

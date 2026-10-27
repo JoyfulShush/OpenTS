@@ -78,9 +78,9 @@ class VeterancyClass
 		 */
 		void Set_Dumbass();
 		void Set_Rookie();
-		void Set_Veteran(bool notify_player = true);
-		void Set_Elite(bool notify_player = true);
-		void Set_Experience(double value, bool notify_player = true);
+		void Set_Veteran(bool silent = true);
+		void Set_Elite(bool silent = true);
+		void Set_Experience(double value, bool silent = true);
 
 		/*
 		 * I/O.
@@ -103,7 +103,7 @@ class VeterancyClass
 		double Experience;
 
 		// Callback function for promotion events.
-		PromotedCallback On_Unit_Promoted_Callback;		
+		PromotedCallback On_Unit_Promoted_Callback;
 };
 
 AbilityType Ability_From_Name(const char *name);

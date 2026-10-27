@@ -16,7 +16,7 @@ related:
   id: launch:spawn
 ---
 
-A client that sets up matches outside the game, such as the CnCNet client, writes this file beside the game and starts the game with [`-SPAWN`](/using/command-line/spawn). The game then plays the match the file describes instead of showing its menu, and exits when that match ends.
+A client that sets up matches outside the game, such as the CnCNet client, writes this file beside the game and starts the game with [`-SPAWN`](/using/command-line/#spawn). The game then plays the match the file describes instead of showing its menu, and exits when that match ends.
 
 Every key on this page belongs in the `[Settings]` section unless the page names another section. The game ignores keys it does not know. Values are read as follows:
 
@@ -241,7 +241,7 @@ A saved game keeps the picture and the bar position. The first restart after the
 
 `DifficultyBasedAINames=yes` names each computer player `Hard AI`, `Medium AI` or `Easy AI` instead of `Computer`. The name follows the seat's `[HouseHandicaps]` entry: `0` is Hard, `1` Medium, and `2` to `6` Easy. A seat without an entry is named after `AIDifficulty`, so `AIDifficulty=2` names it Hard. The name does not reflect the [bonus](/systems/difficulty/#the-computers-bonus-with-more-than-one-human) a computer player can get in a match with more than one person.
 
-`QuickMatch=yes` shows every player, computer players included, as `Player 1` to `Player 8` instead of by name. This covers the loading screen, the radar's name list, chat, the messages about alliances, defeats, changed settings and players leaving, the reconnect and out-of-sync dialogs, the vote to skip a movie, the score screen, and the [`-MPDEBUG`](/using/command-line/multiplayer-debug/) overlay. A player's number is their seat's place in [house order](#who-is-playing), so it is the same on every machine and does not change when others leave. The real names stay in this file and still appear in the game's log.
+`QuickMatch=yes` shows every player, computer players included, as `Player 1` to `Player 8` instead of by name. This covers the loading screen, the radar's name list, chat, the messages about alliances, defeats, changed settings and players leaving, the reconnect and out-of-sync dialogs, the vote to skip a movie, the score screen, and the [`-MPDEBUG`](/using/command-line/#multiplayer-debug) overlay. A player's number is their seat's place in [house order](#who-is-playing), so it is the same on every machine and does not change when others leave. The real names stay in this file and still appear in the game's log.
 
 ## The match results file
 
@@ -304,8 +304,7 @@ A new skirmish, and any game against other machines, new or resumed, is also ref
 - `AIPlayers` is negative or more than the seats no person holds;
 - a person's `Side` is not a country the rules have, or their `Color` is not an entry in the rules' `[Colors]` list; a computer seat's country and color are checked the same way unless they are `-1`;
 - a `[HouseHandicaps]` entry is outside `-1` to `6`;
-- an occupied seat's alliance entry is outside `-1` to `7`, or names a seat that is empty;
-- every person watches and no computer plays; this check does not apply to a resumed game.
+- an occupied seat's alliance entry is outside `-1` to `7`, or names a seat that is empty.
 
 A game against other machines, new or resumed, is also refused when:
 
@@ -321,7 +320,7 @@ The game sets how far ahead the machines run and how often they exchange their o
 
 `AimableSams` is not read: a defense whose weapon reaches only the air can be aimed at a chosen aircraft, which [`SAM`](/keys/sam/) owns.
 
-`ContinueWithoutHumans` is not read. A match ends once no person is left playing it, except a match in which every person is [watching](/systems/observers/), which runs on until one side remains.
+`ContinueWithoutHumans` is not read. A match ends once no person is left playing it, except a match in which every person is [watching](/systems/observers/#when-the-match-ends), which runs on until one side remains. When no computer plays either, the match runs until every observer leaves.
 
 `ReadMissionSection` and `CustomMissionID` are not read, and neither is the mission section a client writes for a custom mission. A custom mission's loading picture reaches this game through `CustomLoadScreen`.
 
