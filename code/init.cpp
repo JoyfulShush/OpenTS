@@ -5275,9 +5275,13 @@ class IncreaseGameSpeedCommandClass : public CommandClass
 
 		virtual void Execute(void) const
 		{
+			// Not allowed in multiplayer games
+			if (Session.Type != GAME_NORMAL && Session.Type != GAME_SKIRMISH) return;
+
 			int game_speed = Options.GameSpeed;
 
-			if (game_speed <= 0) return;
+			// A sun.ini value of MAX_SPEED_SETTING runs the game at maximum speed, like 0.
+			if (game_speed <= 0 || game_speed >= OptionsClass::MAX_SPEED_SETTING) return;
 
 			game_speed -= 1;
 			UI_Game_Controls_Service().Set_Game_Speed(game_speed);
@@ -5294,10 +5298,20 @@ class DecreaseGameSpeedCommandClass : public CommandClass
 
 		virtual void Execute(void) const
 		{
+			// Not allowed in multiplayer games
+			if (Session.Type != GAME_NORMAL && Session.Type != GAME_SKIRMISH) return;
+
 			int game_speed = Options.GameSpeed;
 
-			// MAX_SPEED_SETTING is not allowed as a game speed, so the maximum allowed speed is actually one less
+			// MAX_SPEED_SETTING - 1 is the slowest value; one more step would land on
+			// MAX_SPEED_SETTING, which runs at maximum speed.
 			if (game_speed == OptionsClass::MAX_SPEED_SETTING - 1) return;
+
+			// Values from MAX_SPEED_SETTING up run at maximum speed and are counted
+			// from 0, so decreasing from there slows the game by one step.
+			if (game_speed >= OptionsClass::MAX_SPEED_SETTING) {
+				game_speed = 0;
+			}
 
 			game_speed += 1;
 			UI_Game_Controls_Service().Set_Game_Speed(game_speed);
