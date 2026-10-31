@@ -17,7 +17,7 @@ targets:
   id: ui-ini
   effect: changed
 credit:
-- Shush
+- JoyfulShush
 - CCHyper
 ---
 
