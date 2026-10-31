@@ -1280,11 +1280,25 @@ bool TActionClass::TAction_CLEAR_GLOBAL(HouseClass * , ObjectClass * , TriggerCl
 bool TActionClass::TAction_REVEAL_SOME(HouseClass * , ObjectClass * , TriggerClass * , Cell const & )
 {
 	Cell waypoint = Scen->Get_Waypoint_Cell(Data.Value);
-	int height = Map[waypoint].Height + ((Map[waypoint].IsUnderBridge || Map[waypoint].WasUnderBridge) ? BRIDGE_CELL_HEIGHT : 0);
+	int height = Map[waypoint].Height;
+	if (Map[waypoint].IsUnderBridge || Map[waypoint].WasUnderBridge) {
+		height += BRIDGE_CELL_HEIGHT;
+	}
+	 
 	for (int index = 0; index < Houses.Count(); index++) {
 		HouseClass * house = Houses[index];
 		if (house->Is_Player_View() && !house->IsVisionary) {
-			Map.Sight_From(Coord(waypoint - Cell(height/2, height/2)) + Coord(0, 0, height * LEVEL_LEPTON_H), Rule->RevealTriggerRadius, house, false ,false, false, true);
+			// Custom reveal radius per trigger
+			int radius = TriggerRect.X;
+			if (radius <= 0) {
+				radius = Rule->RevealTriggerRadius;
+			}
+
+			// Requires 'RevealByHeight=yes' (default) to consider elevation, even when set to true, since it is checked in 'Map.Sight_From'.
+			// The value is default 0 for true in order to be backwards compatible.
+			int consider_elevation = TriggerRect.Y == 0 ? true : false; // P4 value
+
+			Map.Sight_From(Coord(waypoint - Cell(height/2, height/2)) + Coord(0, 0, height * LEVEL_LEPTON_H), radius, house, false ,false, false, consider_elevation);
 		}
 	}
 	return(true);
